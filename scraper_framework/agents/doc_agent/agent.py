@@ -66,7 +66,7 @@ class DocAgent:
         self,
         tab: MixTab = None,
         page_source: Optional[PageSource] = None,
-        model: str = "qwen",
+        model: str = "deepseek",
         max_depth: int = 10,
         max_retries: int = 3,
     ):

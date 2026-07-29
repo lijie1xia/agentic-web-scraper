@@ -225,7 +225,7 @@ def test_extract_agent_text():
 
 
 def _mock_agent():
-    return DocAgent(tab=MagicMock(), model="local_qwen")
+    return DocAgent(tab=MagicMock(), model="deepseek")
 
 
 # ============================================================

@@ -59,7 +59,7 @@ class LLMAgentScraper:
 
     Usage:
         tab = Chromium().new_tab()
-        scraper = LLMAgentScraper(tab, model="qwen")
+        scraper = LLMAgentScraper(tab, model="deepseek")
         result = scraper.crawl(
             msg="专业信息：https://example.com/program, 学费信息：https://example.com/fees",
             output_fields={"major_name": "专业名称", "fees": "学费"},
@@ -83,7 +83,7 @@ class LLMAgentScraper:
     def __init__(
         self,
         tab: MixTab,
-        model: str = "qwen",
+        model: str = "deepseek",
         system_prompt: str = None,
         max_retries: int = 3,
     ):
@@ -91,7 +91,7 @@ class LLMAgentScraper:
 
         Args:
             tab: DrissionPage 的 MixTab 实例
-            model: 模型名称 ("qwen", "local_qwen", 或自定义)
+            model: 模型名称 ("deepseek", "local_qwen", 或自定义)
             system_prompt: 自定义系统提示词，None 则使用默认
             max_retries: 最大重试次数
         """
@@ -227,7 +227,7 @@ def llm_crawl(
         合并后的数据 dict
     """
     if not model:
-        model = os.getenv("CRAWL_MODEL", "qwen")
+        model = os.getenv("CRAWL_MODEL", "deepseek")
 
     logger.info(f"Using model: {model}")
 

@@ -106,9 +106,13 @@ def extract_with_vl_model(images: List, pdf_crawl_field: Dict[str, str]) -> Opti
         })
     message_content.append({"type": "text", "text": prompt})
 
-    api_key = os.getenv("QWEN_API_KEY") or os.getenv("OPENAI_API_KEY")
-    base_url = os.getenv("VL_BASE_URL", "https://dashscope.aliyuncs.com/compatible-mode/v1")
-    model_name = os.getenv("VL_MODEL", "qwen3-vl-flash")
+    api_key = (
+        os.getenv("VL_API_KEY")
+        or os.getenv("DEEPSEEK_API_KEY")
+        or os.getenv("OPENAI_API_KEY")
+    )
+    base_url = os.getenv("VL_BASE_URL", "https://api.deepseek.com")
+    model_name = os.getenv("VL_MODEL", "deepseek-chat")
 
     client = OpenAI(base_url=base_url, api_key=api_key)
 

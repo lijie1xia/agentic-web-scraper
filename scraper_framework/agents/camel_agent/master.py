@@ -45,7 +45,7 @@ class ParsedUrlList(BaseModel):
 
 class CamelScraperConfig(BaseModel):
     """爬取配置"""
-    model: str = "local_qwen"
+    model: str = "deepseek"
     max_retries: int = 3
     max_workers: int = 3
 
