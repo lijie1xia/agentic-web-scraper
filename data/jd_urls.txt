@@ -1,0 +1,14 @@
+# JD 详情页 URL，每行一条。# 开头为注释。
+# 优先放公司官网 / Greenhouse / Lever 等公开职位页。
+#
+# 示例:
+# https://careers.example.com/jobs/123
+# https://boards.greenhouse.io/example/jobs/456
+
+https://jobs.bytedance.com/campus/position/7616306669668010293/detail?recomId=f055a7dd-27ff-11f1-9ed4-fa163e47e78a&sourceJobId=7532805635555248392&spread=B3RU5SF
+
+https://jobs.siemens.com/es_ES/externaljobs/JobDetail/514602
+
+https://join.qq.com/post_detail.html?postid=1216462959547938818
+
+https://www.applysquare.com/opportunity-cn/o9y2Q9kNv59jGH/

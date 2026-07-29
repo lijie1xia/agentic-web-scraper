@@ -11,6 +11,9 @@ from dotenv import load_dotenv
 load_dotenv()
 
 NO_PROXY_TARGETS = [
+    "api.deepseek.com",
+    "deepseek.com",
+    ".deepseek.com",
     "dashscope.aliyuncs.com",
     "aliyuncs.com",
     ".aliyuncs.com",
@@ -21,7 +24,10 @@ NO_PROXY_TARGETS = [
 
 @contextmanager
 def enable_no_proxy_for_aliyun(domains=None):
-    """临时添加阿里云域名到 NO_PROXY，退出时自动恢复"""
+    """临时添加 API 域名到 NO_PROXY，退出时自动恢复。
+
+    函数名沿用历史命名；实际覆盖 DeepSeek / 阿里云等需直连的域名。
+    """
     if domains is None:
         domains = NO_PROXY_TARGETS
     backup_NO_PROXY = os.environ.get("NO_PROXY")
@@ -44,11 +50,11 @@ def enable_no_proxy_for_aliyun(domains=None):
             os.environ.pop("no_proxy", None)
 
 
-def get_model(model_name: str = "qwen", **kwargs):
+def get_model(model_name: str = "deepseek", **kwargs):
     """根据模型名称获取 CAMEL 模型实例
 
     支持的模型名称:
-        - "qwen": 阿里云 Qwen (需要 QWEN_API_KEY)
+        - "deepseek": DeepSeek 官方 API (需要 DEEPSEEK_API_KEY)
         - "local_qwen": 本地/自定义 OpenAI 兼容模型 (需要 LOCAL_API_KEY, LOCAL_BASE_URL, LOCAL_MODEL)
         - 任意 OpenAI 兼容模型: 通过 kwargs 传入 api_key, base_url, model_type
 
@@ -61,14 +67,15 @@ def get_model(model_name: str = "qwen", **kwargs):
     """
     timeout = kwargs.get("timeout", 300)
 
-    if model_name == "qwen":
-        api_key = kwargs.get("api_key") or os.getenv("QWEN_API_KEY")
+    # "qwen" 作为历史别名，映射到 deepseek，避免旧调用立刻炸掉
+    if model_name in ("deepseek", "qwen"):
+        api_key = kwargs.get("api_key") or os.getenv("DEEPSEEK_API_KEY")
         if not api_key:
-            raise RuntimeError("QWEN_API_KEY environment variable is not set.")
+            raise RuntimeError("DEEPSEEK_API_KEY environment variable is not set.")
         with enable_no_proxy_for_aliyun():
             return ModelFactory.create(
-                model_platform=ModelPlatformType.QWEN,
-                model_type=kwargs.get("model_type", "qwen3-max"),
+                model_platform=ModelPlatformType.DEEPSEEK,
+                model_type=kwargs.get("model_type", "deepseek-chat"),
                 api_key=api_key,
                 timeout=timeout,
             )
