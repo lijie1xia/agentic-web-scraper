@@ -42,7 +42,7 @@ from scraper_framework.agents.llm_agent import LLMAgentScraper
 tab = Chromium().new_tab()
 
 # 创建爬取器
-scraper = LLMAgentScraper(tab, model="qwen")
+scraper = LLMAgentScraper(tab, model="deepseek")
 
 # 爬取 - 提供 URL 和要提取的字段
 result = scraper.crawl(
@@ -75,7 +75,7 @@ result = llm_crawl(
     msg="页面内容：https://example.com/page",
     existing_data=existing_data,
     output_fields={"name": "名称", "price": "价格", "category": "分类"},
-    model="qwen",
+    model="deepseek",
 )
 
 print(result)
@@ -92,7 +92,7 @@ from scraper_framework.agents.camel_agent import CamelScraperAgent, CamelScraper
 
 tab = Chromium().new_tab()
 
-config = CamelScraperConfig(model="local_qwen", max_retries=3)
+config = CamelScraperConfig(model="deepseek", max_retries=3)
 agent = CamelScraperAgent(tab, config)
 
 result = agent.run(
@@ -264,12 +264,12 @@ scraper_framework/
 
 ## 模型配置
 
-### 阿里云 Qwen
+### DeepSeek
 
 ```python
 from scraper_framework.tools import get_model
 
-model = get_model("qwen")  # 使用 QWEN_API_KEY
+model = get_model("deepseek")  # 使用 DEEPSEEK_API_KEY
 ```
 
 ### 本地/自定义模型
@@ -293,13 +293,14 @@ model = get_model(
 
 | 变量名 | 说明 | 必需 |
 |--------|------|------|
-| `QWEN_API_KEY` | 阿里云 Qwen API Key | 使用 qwen 时必需 |
+| `DEEPSEEK_API_KEY` | DeepSeek API Key | 使用 deepseek 时必需 |
 | `LOCAL_API_KEY` | 本地模型 API Key | 使用 local_qwen 时必需 |
 | `LOCAL_BASE_URL` | 本地模型 API 地址 | 使用 local_qwen 时必需 |
 | `LOCAL_MODEL` | 本地模型名称 | 使用 local_qwen 时必需 |
-| `CRAWL_MODEL` | 默认模型 (qwen/local_qwen) | 否 |
+| `CRAWL_MODEL` | 默认模型 (deepseek/local_qwen) | 否 |
 | `VL_BASE_URL` | 视觉模型 API 地址 | PDF 解析时必需 |
 | `VL_MODEL` | 视觉模型名称 | PDF 解析时必需 |
+| `VL_API_KEY` | 视觉模型 API Key（可选，默认回退 DEEPSEEK_API_KEY） | 否 |
 
 ## License
 

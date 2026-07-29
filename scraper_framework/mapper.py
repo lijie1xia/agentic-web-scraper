@@ -57,7 +57,7 @@ def _build_prompt(
         """
 
 
-def _call_llm(prompt: str, model_name: str = "local_qwen", retry: int = 3) -> List[Dict]:
+def _call_llm(prompt: str, model_name: str = "deepseek", retry: int = 3) -> List[Dict]:
     """调用 LLM"""
     for attempt in range(retry):
         try:
@@ -84,7 +84,7 @@ def llm_mapper(
     target_fields: Union[str, List[str]],
     additional_rules: str = "",
     id_field: str = "url",
-    model: str = "local_qwen",
+    model: str = "deepseek",
     batch_size: int = 4,
     max_workers: int = 5,
     enable_async: bool = True,

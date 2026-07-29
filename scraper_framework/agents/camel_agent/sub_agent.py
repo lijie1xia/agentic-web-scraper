@@ -61,7 +61,7 @@ class SubAgent:
     def __init__(
         self,
         tab: MixTab,
-        model_name: str = "qwen",
+        model_name: str = "deepseek",
         max_retries: int = 3,
         response_model: Optional[Type[BaseModel]] = None,
     ):
