@@ -33,7 +33,7 @@ def main():
         sys.exit(1)
 
     print(f"加载 {len(urls)} 条 URL，开始抽取…")
-    print("（会先打开 JD 页面，再调用 LLM；浏览器地址栏应很快变成岗位 URL）")
+    print("（先打开 JD 页面，再调用 LLM；浏览器地址栏应很快变成岗位 URL）")
 
     out_dir = ROOT / "output"
     out_dir.mkdir(exist_ok=True)
