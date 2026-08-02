@@ -140,6 +140,14 @@ def extract_jd(
         return normalize_jd_result({"source_url": url, **empty_jd_fields()})
 
     print(f"  → 已抓取 Markdown，长度={len(markdown)}")
+    if len(markdown) < 100:
+        logger.error(f"Markdown almost empty: {url}")
+    elif len(markdown) < 300:
+        logger.warning(
+            f"Markdown unusually short ({len(markdown)} chars): {url}"
+        )
+        logger.debug(f"Markdown preview:\n{markdown[:1000]}")
+
     extracted = _llm_extract_from_markdown(markdown, url, model, max_retries)
 
     result: Dict[str, Any] = {"source_url": url, **empty_jd_fields()}
