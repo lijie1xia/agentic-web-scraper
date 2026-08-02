@@ -12,20 +12,93 @@
 
 ## 安装
 
+**不要直接 `pip install -r requirements.txt`。**  
+新版 pip 的依赖解析器会因为 `camel-ai`（要求 `psutil<6`）和 `crawl4ai`（要求 `psutil>=6.1.1`）声明冲突而报 `ResolutionImpossible`。按下面步骤安装即可绕过。
+
+### 1. 创建并激活虚拟环境
+
 ```bash
-pip install -r requirements.txt
+python -m venv .venv
+
+# Windows PowerShell
+.\.venv\Scripts\Activate.ps1
+
+# macOS / Linux
+# source .venv/bin/activate
 ```
 
-安装 DrissionPage 浏览器驱动（如未安装）:
+### 2. 安装 Python 依赖（推荐方式）
 
 ```bash
+python -m pip install -U pip
+
+# 必须加 legacy-resolver：否则会因 camel-ai / crawl4ai 的 psutil 区间冲突直接失败
+python -m pip install -r requirements.txt --use-deprecated=legacy-resolver
+```
+
+装完后强制钉到实测可用的组合（防止解析过程中被拉到 `mcp 2.x` 或 `psutil 7.x`）：
+
+```bash
+python -m pip install "mcp>=1.3.0,<2" "psutil>=6.1.1,<7"
+```
+
+冒烟检查：
+
+```bash
+python -c "from camel.agents import ChatAgent; from mcp.server import FastMCP; print('deps ok')"
+```
+
+### 为什么不能裸装？
+
+| 包 | 约束 | 说明 |
+|---|---|---|
+| `mcp` | `>=1.3.0,<2` | **硬冲突**：`camel-ai` 仍 import `FastMCP`；装到 `mcp 2.x` 会直接 `ImportError` |
+| `psutil` | `>=6.1.1,<7` | **软冲突**：`crawl4ai` 要 `>=6.1.1`，`camel-ai` 元数据写 `<6`；`6.1.x` 两边实测都能 import |
+| `pydantic` | `<=2.12.0` | 与 `camel-ai` 声明范围对齐 |
+
+`pip check` 仍可能提示：
+
+```text
+camel-ai ... requires psutil<6, ..., but you have psutil 6.1.x
+```
+
+可忽略。不要为了消警告去装 `psutil 5.x` 或 `7.x`。
+
+### 3. 安装浏览器依赖
+
+```bash
+# Playwright（crawl4ai 会用到）
+python -m playwright install chromium
+
+# DrissionPage（首次会拉起 Chrome）
 python -c "from DrissionPage import Chromium; Chromium()"
 ```
 
-配置环境变量，复制 `.env.demo` 为 `.env` 并填入 API Key:
+### 4. 配置环境变量
 
 ```bash
-cp .env.demo .env
+# Windows PowerShell
+Copy-Item .env.demo .env
+
+# macOS / Linux
+# cp .env.demo .env
+```
+
+最少配置：
+
+```env
+DEEPSEEK_API_KEY=sk-xxx
+CRAWL_MODEL=deepseek
+```
+
+### 5. 若已装坏，快速修复
+
+```bash
+# mcp 2.x 导致 FastMCP ImportError 时
+python -m pip install "mcp>=1.3.0,<2"
+
+# psutil 版本不对时
+python -m pip install "psutil>=6.1.1,<7"
 ```
 
 ## 快速开始
