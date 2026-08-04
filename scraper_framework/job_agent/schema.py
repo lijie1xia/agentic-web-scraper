@@ -65,6 +65,10 @@ JD_OUTPUT_FIELDS: Dict[str, str] = {
         "【辅助字段】中文摘要 80-150 字：核心职责、技术方向、适合人群；"
         "不添加页面不存在的信息；决策请以结构化字段为准"
     ),
+    "extraction_status": (
+        "抽取状态，取值为 ok / empty / page_invalid"
+        "如果页面内容为错误提示或空白,返回status=page_invalid, page_invalid状态下的 JD 会被丢弃,不参与后续决策"
+    )
 }
 
 JD_EXTRACT_USER_PROMPT = """
@@ -98,7 +102,8 @@ JD_EXTRACT_USER_PROMPT = """
   "preferred_skills": ["LangChain", "LLM application experience"],
   "tech_stack": ["Python", "FastAPI", "Docker", "SQL"],
   "jd_summary": "该公司招聘 AI 应用开发实习生，面向2027届在读学生，工作地点北京，侧重服务开发与 AI 应用落地，要求具备 Python 与 SQL 等能力。"
-}
+  "extraction_status": "ok"
+  }
 
 【字段规则】
 1. job_level：只提取页面明确出现的职级（标题或正文中的 Senior/Junior/Staff/P7/高级 等）。
