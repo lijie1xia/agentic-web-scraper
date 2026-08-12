@@ -2,6 +2,8 @@
 
 from .schema import JD_OUTPUT_FIELDS, JD_EXTRACT_USER_PROMPT, JD_LIST_FIELDS
 from .extract import extract_jd, extract_jd_batch
+from .decision import score, score_jobs
+from .skill_profile import DEFAULT_SKILL_PROFILE, load_skill_profile
 
 __all__ = [
     "JD_OUTPUT_FIELDS",
@@ -9,4 +11,8 @@ __all__ = [
     "JD_LIST_FIELDS",
     "extract_jd",
     "extract_jd_batch",
+    "score",
+    "score_jobs",
+    "DEFAULT_SKILL_PROFILE",
+    "load_skill_profile",
 ]

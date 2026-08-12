@@ -1,9 +1,10 @@
-"""批量跑模块1 JD 抽取。
+"""批量跑模块1 JD 抽取，并可选接通模块2 评分。
 
 用法:
   1. 把 JD URL 写入 data/jd_urls.txt（每行一条）
   2. python scripts/run_jd_extract.py
-  3. 结果写入 output/jd_extract_*.json，人工核对字段
+  3. 原始结果 → output/jd_extract_*.json
+     评分结果 → output/jd_scored_*.json
 """
 
 import json
@@ -18,7 +19,9 @@ if str(ROOT) not in sys.path:
 from DrissionPage import Chromium
 
 from scraper_framework.job_agent import extract_jd_batch
+from scraper_framework.job_agent.decision import score_jobs
 from scraper_framework.job_agent.extract import load_urls
+from scraper_framework.job_agent.skill_profile import load_skill_profile
 
 
 def main():
@@ -38,24 +41,35 @@ def main():
     out_dir = ROOT / "output"
     out_dir.mkdir(exist_ok=True)
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    out_path = out_dir / f"jd_extract_{stamp}.json"
+    extract_path = out_dir / f"jd_extract_{stamp}.json"
+    scored_path = out_dir / f"jd_scored_{stamp}.json"
+
+    profile_path = ROOT / "data" / "skill_profile.json"
+    profile = load_skill_profile(profile_path if profile_path.exists() else None)
 
     browser = Chromium()
     tab = browser.latest_tab
     try:
-        results = extract_jd_batch(tab, urls)
+        jobs = extract_jd_batch(tab, urls)
     finally:
         try:
             browser.quit()
         except Exception:
             pass
 
-    out_path.write_text(
-        json.dumps(results, ensure_ascii=False, indent=2),
+    extract_path.write_text(
+        json.dumps(jobs, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
-    print(f"完成 {len(results)} 条 → {out_path}")
-    print("下一步：打开 JSON，人工核对字段准确率，再调 schema/prompt。")
+    print(f"模块1 完成 {len(jobs)} 条 → {extract_path}")
+
+    scored = score_jobs(jobs, profile, sort_by_score=True)
+    scored_path.write_text(
+        json.dumps(scored, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    recommended = sum(1 for x in scored if x.get("decision", {}).get("recommend"))
+    print(f"模块2 完成 {len(scored)} 条（推荐 {recommended}）→ {scored_path}")
 
 
 if __name__ == "__main__":
