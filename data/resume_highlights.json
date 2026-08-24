@@ -1,0 +1,64 @@
+{
+  "projects": [
+    {
+      "name": "agentic-web-scraper",
+      "one_liner": "基于docling为上下文的自主导航Agent框架，支持结构化数据抽取",
+      "tags": ["Agent", "FunctionTool", "schema", "camel-ai"]
+    },
+    {
+      "name": "cookie_handler",
+      "one_liner": "四层降级式Cookie同意弹窗处理器,含shadow DOM递归遍历",
+      "tags": ["工程鲁棒性", "反爬", "DOM"]
+    },
+    {
+      "name": "NYU学费抓取项目",
+      "one_liner": "解决AWS WAF反爬拦截,PDF解析从LLM方案切换为pdfplumber提速",
+      "tags": ["反爬", "PDF解析", "性能优化"]
+    },
+    {
+      "name": "CrawlAgent(ReAct架构)研究与调试",
+      "one_liner": "研究并调试基于LangGraph的ReAct Agent,理解fetch/extract工具设计",
+      "tags": ["LangGraph", "ReAct", "Agent架构"]
+    }
+  ],
+  "skills": [
+    "Python",
+    "LangChain",
+    "LangGraph",
+    "RAG",
+    "AI Agent",
+    "MCP",
+    "Prompt Engineering",
+    "DrissionPage",
+    "多模态",
+    "向量检索",
+    "Python",
+    "Java",
+    "Go",
+    "Docker",
+    "Git",
+    "Postman",
+    "Linux",
+    "MySQL",
+    "SQL",
+    "Flask",
+    "Spring Boot",
+    "RESTful API",
+    "Playwright",
+    "LangChain",
+    "RAG",
+    "MCP",
+    "Skills",
+    "Agent",
+    "Dify",
+    "AI Coding",
+    "Cursor",
+    "Windsurf",
+    "gpt",
+    "Claude",
+    "Kimi",
+    "Gemini",
+    "Qwen"
+  ],
+  "background": "2027应届本科生,5个月数据采集/爬虫岗实习经验,擅长独立设计Agent工程方案并落地"
+}
