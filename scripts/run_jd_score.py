@@ -1,8 +1,8 @@
 """仅对已有 JD JSON 跑模块2 评分（不重新爬取）。
 
 用法:
-  python scripts/run_jd_score.py output/jd_extract_20260101_120000.json
-  python scripts/run_jd_score.py output/jd_extract_20260101_120000.json --profile data/skill_profile.json
+  python scripts/run_jd_score.py output/extract/jd_extract_20260101_120000.json
+  python scripts/run_jd_score.py output/extract/jd_extract_20260101_120000.json --profile data/skill_profile.json
 """
 
 import argparse
@@ -36,7 +36,7 @@ def main():
         "-o",
         "--output",
         default=None,
-        help="输出路径；默认 output/jd_scored_{timestamp}.json",
+        help="输出路径；默认 output/scored/jd_scored_{timestamp}.json",
     )
     args = parser.parse_args()
 
@@ -58,8 +58,8 @@ def main():
 
     scored = score_jobs(jobs, profile, sort_by_score=not args.no_sort)
 
-    out_dir = ROOT / "output"
-    out_dir.mkdir(exist_ok=True)
+    out_dir = ROOT / "output" / "scored"
+    out_dir.mkdir(parents=True, exist_ok=True)
     if args.output:
         out_path = Path(args.output)
     else:
