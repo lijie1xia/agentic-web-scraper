@@ -1,0 +1,39 @@
+{
+  "tech_stack": [
+    "Python",
+    "Java",
+    "Go",
+    "Docker",
+    "Git",
+    "Postman",
+    "Linux",
+    "MySQL",
+    "SQL",
+    "Flask",
+    "Spring Boot",
+    "RESTful API",
+    "Playwright",
+    "LangChain",
+    "RAG",
+    "MCP",
+    "Skills",
+    "Agent",
+    "Dify",
+    "AI Coding",
+    "Cursor",
+    "Windsurf",
+    "gpt",
+    "Claude",
+    "Kimi",
+    "Gemini",
+    "Qwen"
+  ],
+  "education": "本科在读",
+  "graduate_year": 2027,
+  "experience_years": 0,
+  "preferred_work_mode": ["remote", "hybrid", "onsite"],
+  "deal_breakers": {
+    "min_education": "本科",
+    "max_experience_required": 1
+  }
+}

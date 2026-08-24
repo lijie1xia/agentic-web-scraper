@@ -4,6 +4,8 @@ from .schema import JD_OUTPUT_FIELDS, JD_EXTRACT_USER_PROMPT, JD_LIST_FIELDS
 from .extract import extract_jd, extract_jd_batch
 from .decision import score, score_jobs
 from .skill_profile import DEFAULT_SKILL_PROFILE, load_skill_profile
+from .generate import generate_greeting, generate_greetings, select_relevant_highlights
+from .resume_highlights import DEFAULT_RESUME_HIGHLIGHTS, load_resume_highlights
 
 __all__ = [
     "JD_OUTPUT_FIELDS",
@@ -15,4 +17,9 @@ __all__ = [
     "score_jobs",
     "DEFAULT_SKILL_PROFILE",
     "load_skill_profile",
+    "select_relevant_highlights",
+    "generate_greeting",
+    "generate_greetings",
+    "DEFAULT_RESUME_HIGHLIGHTS",
+    "load_resume_highlights",
 ]
