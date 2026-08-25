@@ -21,6 +21,10 @@ _PARSE_RETRIES = 2
 
 _GREETING_STYLES = ("简洁直接版", "突出项目匹配版", "突出学习意愿版")
 
+# 太短会被压成电报体，太长在聊天框里没人读
+_TEXT_MIN_CHARS = 120
+_TEXT_MAX_CHARS = 180
+
 
 def _as_str_list(values: Any) -> List[str]:
     if values is None:
@@ -70,24 +74,54 @@ def select_relevant_highlights(
     return [p for _, p in scored_projects[:top_k]]
 
 
-def _build_greeting_prompt(
-    job: dict, decision: dict, resume: dict, relevant: list
-) -> str:
+def _matched_tech(job: dict, resume: dict) -> List[str]:
+    """JD 技术栈与简历技能的交集，取 JD 原文用词。
+
+    只给技术词本身，不给分数/比例——decision.reasons 那套打分话术喂进 prompt
+    会被模型学去，写出"技术栈匹配核心要求"这类机器腔。
+    """
+    resume_norms = {
+        _norm_tag(t) for t in _as_str_list(resume.get("skills")) if _norm_tag(t)
+    }
+    for p in resume.get("projects") or []:
+        if isinstance(p, dict):
+            resume_norms |= {
+                _norm_tag(t) for t in _as_str_list(p.get("tags")) if _norm_tag(t)
+            }
+
+    job_techs = _as_str_list(job.get("tech_stack")) or _as_str_list(
+        job.get("required_skills")
+    )
+    matched: List[str] = []
+    for raw in job_techs:
+        if _norm_tag(raw) in resume_norms and raw not in matched:
+            matched.append(raw)
+    return matched
+
+
+def _build_greeting_prompt(job: dict, resume: dict, relevant: list) -> str:
     company = str(job.get("company") or "").strip() or "未知公司"
     title = str(job.get("job_title") or "").strip() or "未知职位"
     core_skills = _as_str_list(job.get("required_skills"))[:3]
-    reasons = [str(r).strip() for r in (decision.get("reasons") or []) if str(r).strip()]
+    matched = _matched_tech(job, resume)
     background = str(resume.get("background") or "").strip()
 
+    # 不给项目 name：那是仓库名，会被原样搬进正文
     project_lines = []
     for p in relevant:
-        name = str(p.get("name") or "").strip()
         one_liner = str(p.get("one_liner") or "").strip()
-        if name and one_liner:
-            project_lines.append(f"- {name}: {one_liner}")
-        elif one_liner:
+        if not one_liner:
+            continue
+        outcome = str(p.get("outcome") or "").strip()
+        if outcome:
+            project_lines.append(f"- {one_liner}（做出的结果：{outcome}）")
+        else:
             project_lines.append(f"- {one_liner}")
-    projects_block = "\n".join(project_lines) if project_lines else "- （暂无高度匹配项目，结合背景与匹配理由写）"
+    projects_block = (
+        "\n".join(project_lines)
+        if project_lines
+        else "- （暂无高度匹配项目，就从求职者定位和重合技术点写，不要编项目）"
+    )
 
     return f"""你是求职者本人,要给下面这个岗位写一段打招呼语(用于投递平台的开场白)。
 
@@ -99,17 +133,31 @@ def _build_greeting_prompt(
 职位: {title}
 核心要求: {', '.join(core_skills) if core_skills else "未列出"}
 
-【匹配理由】
-{'; '.join(reasons) if reasons else "无"}
+【求职者会、且这个岗位要求的技术】
+{'、'.join(matched) if matched else "无明显重合，别硬凑"}
+(这是"他会用"的清单,不代表下面某个项目用过它)
 
-【可强调的项目经验】
+【可用的项目经验】
 {projects_block}
 
-要求:
-1. 生成3个版本,style 必须分别是: {_GREETING_STYLES[0]}、{_GREETING_STYLES[1]}、{_GREETING_STYLES[2]}
-2. 每个版本严格控制在80-120字
-3. 不要空话套话("我对贵公司非常感兴趣"这种一律不许出现)
-4. 只输出JSON数组,不要任何解释文字,格式: [{{"style": "...", "text": "..."}}]
+写法要求:
+1. 只能用上面给出的事实。不许编造上面没有的经历、公司、职责或数字——这是要发给招聘方的,编了面试就穿帮
+   上面没写的课程和证书尤其不许提,不许说"这门课我选修过""我学过这个"
+2. 上面的技术清单不许硬安到项目描述里。项目描述本身没提到的技术,就不能说"这个项目是用它写的"
+3. JD 要求里求职者没有的,要么不提,要么直说没接触过,不要含糊带过
+4. 说人话。用完整句子,像给人发消息,不是填简历表格。不要用「+」「/」串联技术名,不要一句话里堆四五个名词
+5. 每版只讲一个项目,并且带上它做出的结果。没有结果撑着的能力就别写
+6. 不许写「技术栈匹配」「能快速上手」「符合贵司要求」这类自己给自己下的结论——把事实摆出来,让对方自己判断
+7. 项目用中文口语描述。不要出现仓库名、英文包名、内部工具名(JD 自己提到的技术词除外)
+8. 三个版本的开头必须不一样,不要三版都从自我介绍起手
+9. 每版 4-6 句话,{_TEXT_MIN_CHARS}-{_TEXT_MAX_CHARS} 字。宁可短也不要超,写完自己数一遍
+10. 空话套话一律不许出现(「我对贵公司非常感兴趣」「贵司平台广阔」这类)
+
+语气示范(只学这种说话方式,内容是另一个领域的,不要照抄):
+"看到岗位要做门店补货预测。我上半年在一家生鲜电商做过类似的事,把 30 家门店的日销预测接进了他们的订货系统,跑了两个月,人工改单量降了一半左右。用的是最朴素的时序加节假日修正,没上复杂模型,因为店长得能看懂为什么推荐这个数,看不懂就不会照着订。想问问你们现在补货这块主要卡在哪一环。"
+
+只输出JSON数组,不要任何解释文字,格式: [{{"style": "...", "text": "..."}}]
+style 必须分别是: {_GREETING_STYLES[0]}、{_GREETING_STYLES[1]}、{_GREETING_STYLES[2]}
 """
 
 
@@ -153,6 +201,11 @@ def _normalize_greetings(raw: Any) -> List[dict]:
         style = str(item.get("style") or "").strip()
         text = str(item.get("text") or "").strip()
         if style and text:
+            if not _TEXT_MIN_CHARS <= len(text) <= _TEXT_MAX_CHARS:
+                logger.warning(
+                    f"greeting 字数 {len(text)} 超出 "
+                    f"{_TEXT_MIN_CHARS}-{_TEXT_MAX_CHARS}（{style}）"
+                )
             out.append({"style": style, "text": text})
     return out
 
@@ -170,7 +223,6 @@ def generate_greeting(
     relevant = select_relevant_highlights(job if isinstance(job, dict) else {}, resume)
     prompt = _build_greeting_prompt(
         job if isinstance(job, dict) else {},
-        decision,
         resume if isinstance(resume, dict) else {},
         relevant,
     )
