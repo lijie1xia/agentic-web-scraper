@@ -11,10 +11,13 @@ from datetime import datetime
 from pathlib import Path
 
 # ↓ 改这里：模块2 产出的 jd_scored_*.json（在 output/scored/ 下）
-INPUT = "output/scored/jd_scored_20260825_001049.json"
+INPUT = "output/scored/jd_scored_20260812_231248.json"
 
 # 可选。None 则自动写 output/greeted/jd_greeted_{timestamp}.json
 OUTPUT = None
+
+# 可选。None 走 CRAWL_MODEL，再回退 deepseek。想 A/B 换模型改这里，如 "local_qwen"
+MODEL = None
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -51,7 +54,7 @@ def main():
     resume_path = ROOT / "data" / "resume_highlights.json"
     resume = load_resume_highlights(resume_path if resume_path.exists() else None)
 
-    greeted = generate_greetings(ranked, resume)
+    greeted = generate_greetings(ranked, resume, model=MODEL)
 
     out_dir = ROOT / "output" / "greeted"
     out_dir.mkdir(parents=True, exist_ok=True)
