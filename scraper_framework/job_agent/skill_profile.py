@@ -12,15 +12,30 @@ from typing import Any, Dict, Union
 DEFAULT_SKILL_PROFILE: Dict[str, Any] = {
     "tech_stack": [
         "Python",
-        "Go",
+        "Java",
+        "Spring Boot",
+        "Flask",
         "Docker",
+        "Nginx",
         "Git",
         "Linux",
         "MySQL",
-        "Playwright",
+        "Redis",
         "LangChain",
         "RAG",
         "Agent",
+        "AI Agent",
+        "MCP",
+        "Prompt Engineering",
+        "Function Calling",
+        "DrissionPage",
+        "XPath",
+        "pdfplumber",
+        "RESTful API",
+        "RxJava",
+        "SSE",
+        "Hugging Face",
+        "向量检索",
     ],
     "education": "本科在读",
     "graduate_year": 2027,
@@ -50,3 +65,9 @@ def load_skill_profile(path: Union[str, Path, None] = None) -> Dict[str, Any]:
     if not isinstance(data, dict):
         raise ValueError(f"skill_profile JSON 必须是对象: {path}")
     return data
+
+
+__all__ = [
+    "DEFAULT_SKILL_PROFILE",
+    "load_skill_profile",
+]
