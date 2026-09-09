@@ -1,37 +1,45 @@
 {
   "projects": [
     {
-      "name": "agentic-web-scraper",
-      "one_liner": "做了一个能自己在网站里逐页找内容的采集框架，把页面整理成结构化字段",
-      "outcome": "换个配置就能接新的采集任务，不用每个站点重写一遍爬虫",
-      "tags": ["Agent", "FunctionTool", "schema", "camel-ai"]
+      "name": "启德教育-海外院校数据采集迁移",
+      "one_liner": "在启德实习期间，参与把海外院校数据采集从 LLM/Agent 方案迁移到 XPath 确定性解析，负责验证与落地",
+      "outcome": "覆盖 23 所院校、7 国、1500+ 专业，核心字段完整率约 98%；单校处理周期从 5 天缩短到 2 天，字段一次性通过率约 90%",
+      "tags": ["Python", "Agent", "AI Agent", "MCP", "XPath", "Prompt Engineering", "Function Calling"]
     },
     {
-      "name": "cookie_handler",
-      "one_liner": "写了一套自动点掉网页 Cookie 同意弹窗的模块，分多层兜底",
-      "outcome": "弹窗挡住页面导致的抓取失败不用再人工介入",
-      "tags": ["工程鲁棒性", "反爬", "DOM"]
+      "name": "启德教育-PDF表格规则化解析",
+      "one_liner": "针对 LLM 解析非标准 PDF 表格易出错的问题，改用规则化读取替代大模型解析",
+      "outcome": "处理率从约 10% 提升到 99%，单次解析耗时从 15 分钟以上降到 5 秒以内",
+      "tags": ["Python", "PDF", "pdfplumber", "性能优化"]
     },
     {
-      "name": "NYU学费抓取项目",
-      "one_liner": "抓一所美国大学的学费数据，页面有反爬拦截、关键数字埋在 PDF 里",
-      "outcome": "把 PDF 解析从大模型方案换成直接读文本层，处理时间明显下降，也不再消耗模型调用额度",
-      "tags": ["反爬", "PDF解析", "性能优化"]
+      "name": "启德教育-采集异常与反爬处理",
+      "one_liner": "开发多层 Cookie 弹窗处理工具，并梳理 WAF 与人机验证的识别和处理流程",
+      "outcome": "减少页面异常污染采集结果，沉淀可复用排障方法，支撑团队周更 10 所院校的交付目标",
+      "tags": ["反爬", "WAF", "DrissionPage", "DOM", "工程鲁棒性"]
     },
     {
-      "name": "CrawlAgent(ReAct架构)研究与调试",
-      "one_liner": "读并调通了一个 ReAct 结构的爬取 Agent，搞清楚它怎么在抓取和抽取之间做选择",
-      "outcome": "",
-      "tags": ["LangGraph", "ReAct", "Agent架构"]
+      "name": "企业级多智能体编排平台",
+      "one_liner": "参与 Spring Boot 多 Agent 协作平台后端，负责 Planner/Router/Executor 分层调度与事件驱动相关开发",
+      "outcome": "修复 RxJava 流式响应并发问题，重构 Quartz 任务调度解决极端场景下线程池枯竭",
+      "tags": ["Java", "Spring Boot", "Agent", "Agent架构", "Docker", "RxJava", "SSE"]
+    },
+    {
+      "name": "RAG垂直领域问答后端",
+      "one_liner": "搭建从爬虫抓取、文本清洗分块到向量检索的 RAG 全流程后端服务",
+      "outcome": "完成 Flask 接入大模型到 Docker/Nginx 部署的全链路，支撑孕产场景基本问答",
+      "tags": ["Python", "RAG", "Flask", "Docker", "LangChain", "向量检索", "Hugging Face"]
+    },
+    {
+      "name": "求职情报Agent",
+      "one_liner": "个人项目：设计 extract-decide-generate 三段式 Agent 流水线，做 JD 结构化抽取与岗位匹配评分",
+      "outcome": "用固定 Schema 约束 LLM 输出，基于真实 JD 完成首轮抽取验证，并生成个性化邮件开场白",
+      "tags": ["Agent", "Python", "Prompt Engineering", "schema", "Function Calling"]
     }
   ],
   "skills": [
     "Python",
-    "LangChain",
     "LangGraph",
-    "RAG",
-    "AI Agent",
-    "MCP",
     "Prompt Engineering",
     "DrissionPage",
     "多模态",
@@ -40,20 +48,34 @@
     "Java",
     "Go",
     "Docker",
+    "Nginx",
     "Git",
     "Postman",
     "Linux",
     "MySQL",
-    "SQL",
     "Flask",
     "Spring Boot",
     "RESTful API",
     "Playwright",
     "LangChain",
     "RAG",
-    "MCP",
     "Skills",
     "Agent",
+    "MCP",
+    "Prompt Engineering",
+    "Function Calling",
+    "DrissionPage",
+    "XPath",
+    "pdfplumber",
+    "RESTful API",
+    "MyBatis",
+    "JPA",
+    "RxJava",
+    "SSE",
+    "Hugging Face",
+    "向量检索",
+    "反爬",
+    "Schema约束",
     "Dify",
     "AI Coding",
     "Cursor",
@@ -64,5 +86,5 @@
     "Gemini",
     "Qwen"
   ],
-  "background": "2027应届本科生,5个月数据采集/爬虫岗实习经验,擅长独立设计Agent工程方案并落地"
+  "background": "广州华立学院区块链工程本科在读(2027届)，启德教育数据采集实习(AI辅助爬虫与流程优化)，专业排名前5%，华为云计算HCIP，通过CET-6，意向AI应用/工程研发实习"
 }

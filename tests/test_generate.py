@@ -43,20 +43,20 @@ RESUME = load_resume_highlights()
 
 
 def test_select_picks_highest_overlap():
-    job = _job(tech_stack=["Agent", "LangGraph"])
+    job = _job(tech_stack=["Agent", "MCP"])
     picked = select_relevant_highlights(job, RESUME, top_k=2)
     assert len(picked) == 2
     names = [p["name"] for p in picked]
-    # Agent 命中 agentic-web-scraper；LangGraph 命中 CrawlAgent
-    assert "agentic-web-scraper" in names
-    assert "CrawlAgent(ReAct架构)研究与调试" in names
+    # Agent+MCP 双命中启德迁移项目；次选为其它 Agent 项目
+    assert "启德教育-海外院校数据采集迁移" in names
+    assert names[0] == "启德教育-海外院校数据采集迁移"
 
 
 def test_select_fallback_required_skills():
     job = _job(tech_stack=[], required_skills=["Agent"])
     picked = select_relevant_highlights(job, RESUME, top_k=1)
     assert picked
-    assert picked[0]["name"] == "agentic-web-scraper"
+    assert picked[0]["name"] == "启德教育-海外院校数据采集迁移"
 
 
 def test_select_skips_empty_one_liner():
@@ -91,9 +91,9 @@ def test_generate_greeting_uses_llm_once():
     def fake_llm(prompt, model):
         calls.append((prompt, model))
         return [
-            {"style": "简洁直接版", "text": "a" * 90},
-            {"style": "突出项目匹配版", "text": "b" * 90},
-            {"style": "突出学习意愿版", "text": "c" * 90},
+            {"style": "简洁直接版", "text": "a" * 140},
+            {"style": "突出项目匹配版", "text": "b" * 140},
+            {"style": "突出学习意愿版", "text": "c" * 140},
         ]
 
     old = g._call_llm
@@ -119,7 +119,7 @@ def test_generate_greetings_structure_and_no_mutate():
     original = copy.deepcopy(ranked)
 
     def fake_llm(prompt, model):
-        return [{"style": "简洁直接版", "text": "hello" * 20}]
+        return [{"style": "简洁直接版", "text": "hello" * 30}]
 
     old = g._call_llm
     g._call_llm = fake_llm
@@ -140,8 +140,8 @@ def test_default_resume_export():
     assert "skills" in DEFAULT_RESUME_HIGHLIGHTS
     assert DEFAULT_RESUME_HIGHLIGHTS["background"]
     names = [p["name"] for p in DEFAULT_RESUME_HIGHLIGHTS["projects"]]
-    assert "agentic-web-scraper" in names
-    assert "cookie_handler" in names
+    assert "启德教育-海外院校数据采集迁移" in names
+    assert "RAG垂直领域问答后端" in names
 
 
 if __name__ == "__main__":
