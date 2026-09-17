@@ -290,7 +290,7 @@ def generate_greetings(
             greetings = generate_greeting(job, decision, resume, model=model)
         except Exception as e:
             logger.error(f"generate_greeting failed for {label}: {e}")
-            print(f"    ✗ 生成失败: {e}")
+            print(f"    [x] 生成失败: {e}")
             greetings = []
 
         item_copy["greetings"] = greetings
