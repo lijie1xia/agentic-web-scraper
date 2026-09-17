@@ -1,6 +1,6 @@
 """模块1：JD 结构化抽取
 
-流程：先用 DrissionPage 打开 URL → HTML→Markdown → 再让 LLM 抽 JSON。
+流程：先用 DrissionPage 打开 URL -> HTML->Markdown -> 再让 LLM 抽 JSON。
 （不用 ReAct 工具调用：已知 URL 时没必要等模型决定是否打开页面。）
 """
 
@@ -87,12 +87,12 @@ def _llm_extract_from_markdown(
 
     for attempt in range(1, max_retries + 1):
         try:
-            print(f"  → LLM 抽取中 (attempt {attempt}/{max_retries}, model={model_name})…")
+            print(f"  -> LLM 抽取中 (attempt {attempt}/{max_retries}, model={model_name})...")
             with enable_no_proxy_for_aliyun(NO_PROXY_TARGETS):
                 response = agent.step(user_msg)
         except Exception as e:
             logger.error(f"LLM extract error on attempt {attempt}: {e}")
-            print(f"  ✗ LLM 调用失败: {e}")
+            print(f"  [x] LLM 调用失败: {e}")
             response = None
 
         text = None
@@ -110,7 +110,7 @@ def _llm_extract_from_markdown(
             return json_obj
 
         logger.warning(f"JD extract: failed to parse JSON on attempt {attempt}")
-        print("  ✗ 未能解析出 JSON，重试…")
+        print("  [x] 未能解析出 JSON，重试...")
         if attempt < max_retries:
             time.sleep(2 ** attempt)
 
@@ -131,15 +131,15 @@ def extract_jd(
     if not model:
         model = os.getenv("CRAWL_MODEL", "deepseek")
 
-    print(f"  → 打开页面: {url}")
+    print(f"  -> 打开页面: {url}")
     logger.info(f"fetching page: {url}")
     markdown = fetch_page_as_markdown_sync(tab, url)
     if not markdown.strip():
         logger.error(f"empty markdown for {url}")
-        print("  ✗ 页面内容为空（可能加载失败或被拦截）")
+        print("  [x] 页面内容为空（可能加载失败或被拦截）")
         return normalize_jd_result({"source_url": url, **empty_jd_fields()})
 
-    print(f"  → 已抓取 Markdown，长度={len(markdown)}")
+    print(f"  -> 已抓取 Markdown，长度={len(markdown)}")
     if len(markdown) < 100:
         logger.error(f"Markdown almost empty: {url}")
     elif len(markdown) < 300:
@@ -159,10 +159,50 @@ def extract_jd(
                 result[k] = v
         result["data_source_type"] = "jd_extract"
         result["data_source_model"] = model
-        print("  ✓ 抽取完成")
+        print("  [ok] 抽取完成")
     else:
         result["error"] = "llm_extract_failed"
-        print("  ✗ 抽取失败")
+        print("  [x] 抽取失败")
+
+    return normalize_jd_result(result)
+
+
+def extract_jd_from_text(
+    text: str,
+    model: Optional[str] = None,
+    max_retries: int = 3,
+    *,
+    source_url: str = "paste://demo",
+) -> Dict[str, Any]:
+    """从粘贴的 JD 文本抽取结构化字段（不打开浏览器）。用于适配Gradio做的演示demo
+
+    复用与 extract_jd 相同的 LLM 抽取与 normalize；仅跳过页面抓取。
+    """
+    if not model:
+        model = os.getenv("CRAWL_MODEL", "deepseek")
+
+    markdown = (text or "").strip()
+    if not markdown:
+        logger.error("empty pasted JD text")
+        print("  [x] 粘贴内容为空")
+        return normalize_jd_result({"source_url": source_url, **empty_jd_fields()})
+
+    print(f"  -> 粘贴文本长度={len(markdown)}")
+    extracted = _llm_extract_from_markdown(markdown, source_url, model, max_retries)
+
+    result: Dict[str, Any] = {"source_url": source_url, **empty_jd_fields()}
+    if isinstance(extracted, dict):
+        for k, v in extracted.items():
+            if k == "source_url":
+                continue
+            if k in JD_OUTPUT_FIELDS and v not in (None, ""):
+                result[k] = v
+        result["data_source_type"] = "jd_extract"
+        result["data_source_model"] = model
+        print("  [ok] 抽取完成")
+    else:
+        result["error"] = "llm_extract_failed"
+        print("  [x] 抽取失败")
 
     return normalize_jd_result(result)
 
@@ -187,7 +227,7 @@ def extract_jd_batch(
             results.append(item)
         except Exception as e:
             logger.error(f"extract failed for {url}: {e}")
-            print(f"  ✗ 异常: {e}")
+            print(f"  [x] 异常: {e}")
             results.append(
                 {
                     "source_url": url,
