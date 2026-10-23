@@ -1,0 +1,2 @@
+# Existing documented camel-ai / Crawl4AI metadata conflict. Runtime tested.
+psutil==6.1.1
