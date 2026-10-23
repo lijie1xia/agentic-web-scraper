@@ -13,6 +13,8 @@ import sqlite3
 import threading
 import time
 
+from .lifecycle import unavailable_reason
+
 
 def _json(value):
     return json.dumps(value, ensure_ascii=False, sort_keys=True,
@@ -225,6 +227,9 @@ class Repository:
             job = self.get_job(job_id)
             self._require_open(job)
             self._check_policy(job, acknowledge_review)
+            reason = unavailable_reason(self, job)
+            if reason:
+                raise ValueError(reason)
             material = self.latest_material(job_id)
             if material is None or material['revision'] != job['revision']:
                 raise ValueError('Current material is required; regenerate after a JD or decision edit')
@@ -261,6 +266,9 @@ class Repository:
         """Called only inside a transaction; no authorization/claim race window."""
         job = self.get_job(job_id)
         self._require_open(job)
+        reason = unavailable_reason(self, job)
+        if reason:
+            raise ValueError(reason)
         if job['status'] != 'APPROVED':
             raise ValueError('Current manual_contact approval required')
         if self._db.execute('SELECT 1 FROM executions WHERE job_id=?', (job_id,)).fetchone():

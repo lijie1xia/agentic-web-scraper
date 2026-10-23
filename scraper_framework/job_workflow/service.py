@@ -12,6 +12,7 @@ from ..job_agent.decision import score
 from .materials import build_material, validate_material
 from .offline import extract_text
 from .repository import Repository
+from .lifecycle import unavailable_reason
 
 ROOT = Path(__file__).resolve().parents[2]
 OPEN = {'READY_FOR_REVIEW', 'APPROVED'}
@@ -104,6 +105,9 @@ class Workflow:
         result = self.repo.list_jobs()
         for row in result:
             material = self.repo.latest_material(row['id'])
+            row['availability_warning'] = unavailable_reason(self.repo, row)
+            if row['availability_warning'] and row['status'] in OPEN:
+                material = None
             if row['status'] in OPEN and (row['decision'].get('category') == 'reject' or (material and material['revision'] != row['revision'])):
                 material = None
             row['material'] = material
@@ -191,13 +195,18 @@ class Workflow:
     def report_text(self):
         rows = self.rows()
         lines = ['本地求职进度摘要', '不调用 LLM；SUBMITTED 为人工确认记录，不是自动投递回执。', '无平台回复读取能力，回复与面试均为人工登记。', '']
+        if any(row['source'] == 'cuhk' for row in rows):
+            lines.append('港中大深圳来源为局部列表及指定详情监测，不覆盖全站；校外申请资格须另行核验。')
         lines.extend(f'{key}: {value}' for key, value in self.summary().items())
         lines.append('')
         for row in rows:
             decision = row['decision']
             title = row['job'].get('job_title') or '职位待核实'
             reminder = '；已超过3天，可人工检查回复' if row['status'] == 'SUBMITTED' and time.time()-row['updated_at'] >= 3*86400 else ''
-            lines.append(f"#{row['id']} {title} | {decision.get('category', 'review')} | {row['status']}{reminder}")
+            availability = f"；{row['availability_warning']}" if row['availability_warning'] else ''
+            lines.append(f"#{row['id']} {title} | {decision.get('category', 'review')} | {row['status']} | 版本{row['revision']}{reminder}{availability}")
+            if row['job'].get('source_url'):
+                lines.append(row['job']['source_url'])
         return '\n'.join(lines) + '\n'
 
     def write_report(self, path):
