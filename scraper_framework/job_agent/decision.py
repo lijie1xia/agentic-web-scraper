@@ -7,10 +7,12 @@
 from __future__ import annotations
 
 import copy
+import math
 import re
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from .skill_profile import DEFAULT_SKILL_PROFILE, load_skill_profile
+from .evaluation import graduation_constraints, role_matches
 
 # 技术栈满分；其余维度为加减分，总分钳制在 0–100
 _TECH_SCORE_MAX = 70
@@ -107,10 +109,7 @@ def _match_tech_stacks(
         for i, p in enumerate(profile_norms):
             if i in used_profile:
                 continue
-            if norm == p or norm in p or p in norm:
-                # 过短 token 避免误匹配（如 "go" in "golang" 已 alias；防 "c" 误伤）
-                if min(len(norm), len(p)) <= 1 and norm != p:
-                    continue
+            if norm == p:
                 hit_idx = i
                 break
         if hit_idx is not None:
@@ -181,47 +180,30 @@ def _parse_min_experience_required(experience_years: Any) -> Optional[float]:
     if not text:
         return None
 
+    tl = re.sub(r"\s+", "", text.lower())
+    if re.search(r"优先|加分|以内|以下|至多|不超过|个月|月|preferred|optional|upto|atmost|lessthan|months?", tl):
+        return None
+    numeric_years = re.search(r"\d\s*(?:\+|[-~～到至–]\s*\d+)?\s*(?:年|years?|yrs?)", text, re.I)
     if _is_fresh_grad_text(text):
-        return 0.0
-
-    # 排除纯届别数字被当成年限（如误写 "2027"）
-    if re.fullmatch(r"20\d{2}", text):
-        return 0.0
-
-    tl = text.lower().replace(" ", "")
-
-    # 明确 0 / 无
+        # Fresh-grad signals do not erase numeric/alternative requirements.
+        return None if numeric_years else 0.0
     if re.search(r"(没有|无需|不需要).{0,4}(经验|工作)", text):
         return 0.0
-    if tl in {"0", "0年", "0years", "0yr", "0yrs"}:
-        return 0.0
-
-    # 区间：1-3年 / 1～3年 / 1到3年 → 取下限
-    m = re.search(
-        r"(\d+(?:\.\d+)?)\s*[-~～到至]\s*(\d+(?:\.\d+)?)\s*(年|years?|yrs?)?",
-        tl,
-        re.I,
-    )
-    if m:
-        return float(m.group(1))
-
-    # N年以上 / N+ years / at least N
-    m = re.search(
-        r"(\d+(?:\.\d+)?)\s*\+?\s*(年|years?|yrs?)?\s*(以上|及以上|\+|plus)?",
-        tl,
-        re.I,
-    )
-    if m:
-        # 避免把 "2027届" 类已处理；再挡一下四位年份
-        val = float(m.group(1))
-        if val >= 1900:
-            return 0.0
-        return val
-
-    m = re.search(r"(atleast|over|morethan)\s*(\d+(?:\.\d+)?)", tl)
-    if m:
-        return float(m.group(2))
-
+    number = r"(\d+(?:\.\d+)?)"
+    prefix = r"(?:至少|要求|必须|具备|需要|atleast|minimumof)?"
+    suffix = r"(?:以上|及以上|\+|plus)?(?:相关)?(?:工作)?(?:经验|experience)?(?:required)?"
+    unit = r"(?:年|years?|yrs?)"
+    ranged = re.fullmatch(prefix + number + r"[-~～到至–]" + number + unit + suffix, tl)
+    if ranged:
+        low, high = map(float, ranged.groups())
+        return low if 0 <= low <= high < 100 else None
+    single = re.fullmatch(prefix + number + r"\+?" + unit + suffix, tl)
+    if single:
+        value = float(single.group(1))
+        return value if 0 <= value < 100 else None
+    if re.fullmatch(number, tl):
+        value = float(tl)
+        return value if 0 <= value < 100 else None
     return None
 
 
@@ -238,42 +220,108 @@ def score(job: dict, profile: dict) -> dict:
     """对单个 Job 打分。不修改 job。
 
     Returns:
-        {"score": int|float|None, "recommend": bool, "reasons": list[str]}
-    """
-    if not isinstance(job, dict):
-        return {
-            "score": None,
-            "recommend": False,
-            "reasons": ["JD无效或提取失败"],
-        }
+        Original score/recommend/reasons plus category (priority/review/reject),
+        warnings and missing_data (list[str]), missing_skills (required/preferred/
+        unspecified lists), skill_evidence (field/skill/matched), graduation_evidence
+        (field/text/years/optional/ambiguous), role_priority (zero-based preference or None).
 
-    if _is_invalid_job(job):
+        Missing evidence earns no matching points. Missing mandatory skills and
+        ambiguous eligibility require review, not an assertion of ineligibility.
+        A recommendation is always category=priority; reject needs a hard conflict
+        or invalid input. Raw JD evidence is read only from supplied raw_jd,
+        jd_text or raw_text fields, never synthesized from summaries.
+    """
+    if not isinstance(job, dict) or _is_invalid_job(job):
         return {
             "score": None,
             "recommend": False,
             "reasons": ["JD无效或提取失败"],
+            "category": "reject",
+            "warnings": ["JD无效，未执行评分"],
+            "missing_data": [],
+            "missing_skills": {"required": [], "preferred": [], "unspecified": []},
+            "skill_evidence": [],
+            "graduation_evidence": [],
+            "role_priority": None,
         }
 
     reasons: List[str] = []
+    warnings: List[str] = []
+    missing_data: List[str] = []
+    needs_review = False
     deal_breaker = False
     score_val = 0.0
 
-    # —— 技术栈（核心）——
-    job_techs = _tech_list(job.get("tech_stack"))
-    # tech_stack 为空时，用 required_skills 作软回退，便于空栈 JD 仍可测
-    used_fallback = False
-    if not job_techs:
-        job_techs = _tech_list(job.get("required_skills"))
-        used_fallback = bool(job_techs)
+    graduation_evidence = graduation_constraints(job)
+    candidate_year = str(profile.get("graduate_year") or "").strip()
+    for item in graduation_evidence:
+        if item["ambiguous"]:
+            needs_review = True
+            warnings.append(f"届别条件含开放范围、否定、替代资格或无法识别，需人工复核：{item['text']}")
+            continue
+        if item["optional"]:
+            continue
+        if not re.fullmatch(r"20\d{2}", candidate_year):
+            needs_review = True
+            if "profile.graduate_year" not in missing_data:
+                missing_data.append("profile.graduate_year")
+                warnings.append("画像毕业年份缺失或无法识别，需复核届别资格")
+        elif int(candidate_year) not in item["years"]:
+            deal_breaker = True
+            reasons.append(f"届别不符合（岗位证据：{item['text']}；画像：{candidate_year}届）")
+
+    # Required requirements own 80% of technical points when secondary
+    # evidence exists. Optional/unspecified evidence cannot swamp them.
+    groups = {}
+    seen = set()
+    for group, field in (("required", "required_skills"), ("preferred", "preferred_skills"),
+                         ("unspecified", "tech_stack")):
+        groups[group] = []
+        for skill in _tech_list(job.get(field)):
+            normalized = _normalize_tech(skill)
+            if normalized and normalized not in seen:
+                groups[group].append(skill)
+                seen.add(normalized)
 
     profile_techs = _tech_list(profile.get("tech_stack"))
-    matched_n, matched_names, _unmatched = _match_tech_stacks(job_techs, profile_techs)
+    if not profile_techs:
+        needs_review = True
+        missing_data.append("profile.tech_stack")
+        warnings.append("画像技术栈缺失，无法证明技能匹配")
+    missing_skills = {}
+    skill_evidence = []
+    matched_names = []
+    ratios = {}
+    for group, field in (("required", "required_skills"), ("preferred", "preferred_skills"),
+                         ("unspecified", "tech_stack")):
+        skills = groups[group]
+        count, matched, missing = _match_tech_stacks(skills, profile_techs)
+        missing_skills[group] = missing
+        ratios[group] = count / len(skills) if skills else 0.0
+        matched_names.extend(matched)
+        skill_evidence.extend({"field": field, "skill": skill, "matched": skill in matched}
+                              for skill in skills)
+    job_techs = [skill for skills in groups.values() for skill in skills]
+    matched_n = len(matched_names)
+    if missing_skills["required"]:
+        needs_review = True
+        warnings.append("画像未证明必需技能：" + "、".join(missing_skills["required"]))
 
     if not job_techs:
-        tech_score = _TECH_SCORE_MAX * 0.4  # 未知：中性偏弱，不直接否决
-        reasons.append("技术栈未知，按中性分处理")
+        tech_score = 0.0
+        needs_review = True
+        missing_data.append("job.technical_skills")
+        warnings.append("缺少岗位技术证据，不能自动推荐")
+        reasons.append("技术栈未知，不授予匹配分，需人工复核")
     else:
-        ratio = matched_n / len(job_techs)
+        secondary = groups["preferred"] + groups["unspecified"]
+        secondary_matches = len(secondary) - len(missing_skills["preferred"]) - len(missing_skills["unspecified"])
+        if groups["required"]:
+            ratio = ratios["required"]
+            if secondary:
+                ratio = 0.8 * ratio + 0.2 * secondary_matches / len(secondary)
+        else:
+            ratio = matched_n / len(job_techs)
         tech_score = round(_TECH_SCORE_MAX * ratio, 2)
         if matched_n == 0:
             reasons.append("技术栈无匹配")
@@ -285,7 +333,7 @@ def score(job: dict, profile: dict) -> dict:
             reasons.append(
                 f"技术栈部分匹配 {matched_n}/{len(job_techs)}（{label}）"
             )
-        if used_fallback:
+        if not _tech_list(job.get("tech_stack")) and groups["required"]:
             reasons.append("tech_stack 为空，已用 required_skills 回退匹配")
 
     score_val += tech_score
@@ -294,13 +342,35 @@ def score(job: dict, profile: dict) -> dict:
     # 规则：岗位要求等级 ≤ 候选人等级 → 符合；更高 → 硬性不符。
     # 空/无法识别 → 未知，不否决。"本科在读" 按本科计。
     deal = profile.get("deal_breakers") or {}
+    role_priority = None
+    target_roles = _tech_list(profile.get("target_roles"))
+    title = str(job.get("job_title") or "").strip()
+    if target_roles:
+        role_priority = next((i for i, role in enumerate(target_roles)
+                              if role_matches(title, role)), None)
+        if role_priority is None:
+            if not title:
+                missing_data.append("job.job_title")
+            if title and deal.get("target_roles_only") is True:
+                deal_breaker = True
+                reasons.append("岗位方向不符合画像明确限定的 target_roles")
+            else:
+                needs_review = True
+                warnings.append("岗位方向未匹配偏好，保留人工复核而非硬性拒绝")
+        else:
+            reasons.append(f"岗位方向匹配偏好：{target_roles[role_priority]}")
     job_edu = str(job.get("education") or "").strip()
     job_rank = _detect_edu_rank(job_edu)
     candidate_rank = _detect_edu_rank(str(profile.get("education") or ""))
+
     if candidate_rank is None:
-        candidate_rank = _detect_edu_rank(str(deal.get("min_education") or ""))
+        needs_review = True
+        missing_data.append("profile.education")
+        warnings.append("画像学历缺失或无法识别，需人工复核")
 
     if not job_edu or job_rank is None:
+        missing_data.append("job.education")
+        warnings.append("学历要求缺失或无法识别，不授予学历匹配分")
         reasons.append("学历要求未知，不作为否决条件")
     elif candidate_rank is None:
         reasons.append("画像学历未知，跳过学历判定")
@@ -315,15 +385,18 @@ def score(job: dict, profile: dict) -> dict:
     # target_candidate 仅作应届辅助信号，不把届别当成年限
     target = str(job.get("target_candidate") or "")
     min_exp = _parse_min_experience_required(exp_text)
-    if min_exp is None and _is_fresh_grad_text(target):
+    if (min_exp is None and not str(exp_text or "").strip()
+            and _is_fresh_grad_text(target) and _parse_min_experience_required(target) == 0):
         min_exp = 0.0
         reasons.append("target_candidate 指向应届/在读，按 0 年经验要求处理")
 
     profile_exp = profile.get("experience_years")
     try:
-        profile_exp_f = float(profile_exp) if profile_exp is not None else 0.0
+        profile_exp_f = float(profile_exp) if profile_exp is not None else None
+        if profile_exp_f is not None and (not math.isfinite(profile_exp_f) or profile_exp_f < 0):
+            profile_exp_f = None
     except (TypeError, ValueError):
-        profile_exp_f = 0.0
+        profile_exp_f = None
 
     max_exp_allowed = deal.get("max_experience_required")
     try:
@@ -333,8 +406,17 @@ def score(job: dict, profile: dict) -> dict:
     except (TypeError, ValueError):
         max_exp_allowed_f = None
 
+    if profile_exp_f is None:
+        needs_review = True
+        missing_data.append("profile.experience_years")
+        warnings.append("画像工作年限缺失或无法识别，不假定为零年")
     if min_exp is None:
+        needs_review = True
+        missing_data.append("job.experience_years")
+        warnings.append("经验要求缺失或含糊，需人工复核")
         reasons.append("经验要求未知，不作为否决条件")
+    elif profile_exp_f is None:
+        reasons.append("画像经验未知，跳过经验判定")
     elif min_exp <= profile_exp_f:
         score_val += _EXP_BONUS
         reasons.append("经验要求符合")
@@ -361,6 +443,8 @@ def score(job: dict, profile: dict) -> dict:
     accepts_all = all_modes.issubset(set(preferred)) or not preferred
 
     if not work_mode or work_mode in {"unknown", "n/a", "na", "none"}:
+        missing_data.append("job.work_mode")
+        warnings.append("工作方式未提供，不授予工作方式匹配分")
         reasons.append("工作方式未知，不扣分")
     elif accepts_all:
         score_val += _WORK_MODE_BONUS
@@ -374,7 +458,7 @@ def score(job: dict, profile: dict) -> dict:
 
     score_val = max(0.0, min(100.0, round(score_val, 2)))
 
-    recommend = (not deal_breaker) and (score_val >= _RECOMMEND_THRESHOLD)
+    recommend = (not deal_breaker) and (not needs_review) and (score_val >= _RECOMMEND_THRESHOLD)
     if deal_breaker:
         recommend = False
 
@@ -382,6 +466,13 @@ def score(job: dict, profile: dict) -> dict:
         "score": score_val,
         "recommend": recommend,
         "reasons": reasons,
+        "category": "reject" if deal_breaker else ("priority" if recommend else "review"),
+        "warnings": warnings,
+        "missing_data": missing_data,
+        "graduation_evidence": graduation_evidence,
+        "missing_skills": missing_skills,
+        "skill_evidence": skill_evidence,
+        "role_priority": role_priority,
     }
 
 
@@ -396,6 +487,7 @@ def score_jobs(
     - 不修改原始 jobs 列表或其元素
     - 返回 [{"job": <深拷贝>, "decision": {...}}, ...]
     - sort_by_score=True（默认）时按 score 降序；None 分排最后
+    - 同分时按可选 profile.target_roles 的顺序排列（例如 AI应用、后端）
     """
     if profile is None:
         profile = DEFAULT_SKILL_PROFILE
@@ -403,7 +495,7 @@ def score_jobs(
     results: List[dict] = []
     for job in jobs:
         job_copy = copy.deepcopy(job) if isinstance(job, dict) else job
-        decision = score(job if isinstance(job, dict) else {}, profile)
+        decision = score(job, profile)
         results.append({"job": job_copy, "decision": decision})
 
     if sort_by_score:
@@ -412,7 +504,9 @@ def score_jobs(
             s = item.get("decision", {}).get("score")
             if s is None:
                 return (0, float("-inf"))
-            return (1, float(s))
+            role_priority = item.get("decision", {}).get("role_priority")
+            preference = -role_priority if role_priority is not None else float("-inf")
+            return (1, float(s), preference)
 
         results.sort(key=_sort_key, reverse=True)
 
