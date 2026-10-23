@@ -1,0 +1,16 @@
+{
+  "database": "output/job_workflow/public_jobs.sqlite3",
+  "report": "output/job_workflow/public_daily.txt",
+  "notice_state": "output/job_workflow/public_last_notice.txt",
+  "inputs": [],
+  "boards": [],
+  "allow_network": false,
+  "campus": {
+    "enabled": true,
+    "pages": 2,
+    "max_jobs": 8,
+    "known_urls": [
+      "https://career.cuhk.edu.cn/en/job/view/id/468767"
+    ]
+  }
+}
