@@ -48,6 +48,20 @@ class SourceTests(unittest.TestCase):
             with self.assertRaises(PermissionError):
                 fetch_greenhouse('demo')
 
+    def test_malformed_metadata_is_reported_as_invalid_source(self):
+        from scraper_framework.job_workflow.sources import parse_greenhouse
+        for meta in ['unexpected', [1], 7, False, []]:
+            with self.subTest(meta=meta), self.assertRaises(ValueError):
+                parse_greenhouse({'jobs': [], 'meta': meta}, 'demo')
+
+    def test_malformed_location_is_reported_as_invalid_source(self):
+        from scraper_framework.job_workflow.sources import parse_greenhouse
+        for location in ['Remote', [1], 7, False, []]:
+            post = {'id': 1, 'title': 'Python Intern',
+                    'absolute_url': 'https://example.org/jobs/1', 'location': location}
+            with self.subTest(location=location), self.assertRaises(ValueError):
+                parse_greenhouse({'jobs': [post]}, 'demo')
+
     def test_board_token_cannot_change_host_or_endpoint(self):
         from scraper_framework.job_workflow.sources import greenhouse_url
         for value in ['../jobs', 'https://evil.test', 'demo?x=y', '', 'demo/../test']:

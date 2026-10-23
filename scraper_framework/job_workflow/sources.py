@@ -91,7 +91,10 @@ def parse_greenhouse(payload: dict, board_token: str) -> list[dict]:
     posts = payload['jobs']
     if len(posts) > MAX_JOBS:
         raise ValueError('岗位数量超过本地处理上限')
-    total = (payload.get('meta') or {}).get('total')
+    meta = payload.get('meta')
+    if meta is not None and not isinstance(meta, dict):
+        raise ValueError('Greenhouse meta 必须是对象或空值')
+    total = (meta or {}).get('total')
     if total is not None and (not isinstance(total, int) or total != len(posts)):
         raise ValueError('岗位快照不完整：总数与返回条数不符，不可据此判定岗位下架')
     result = []
@@ -108,6 +111,9 @@ def parse_greenhouse(payload: dict, board_token: str) -> list[dict]:
         if not isinstance(content, str):
             raise ValueError('岗位正文格式错误')
         raw = html_to_text(content)
+        location = post.get('location')
+        if location is not None and not isinstance(location, dict):
+            raise ValueError('Greenhouse location 必须是对象或空值')
         result.append({
             'source': f'greenhouse:{board_token}',
             'raw_jd': raw,
@@ -115,7 +121,7 @@ def parse_greenhouse(payload: dict, board_token: str) -> list[dict]:
                 'external_id': external_id, 'source_url': url,
                 'job_title': str(post['title']),
                 'company': str(post.get('company_name') or ''),
-                'location': str((post.get('location') or {}).get('name') or ''),
+                'location': str((location or {}).get('name') or ''),
                 'source_updated_at': str(post.get('updated_at') or ''),
             },
         })
