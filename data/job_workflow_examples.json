@@ -1,0 +1,45 @@
+[
+  {
+    "job_title": "AI 应用开发实习生（演示岗位）",
+    "company": "演示公司，不是真实招聘",
+    "location": "广州",
+    "source_url": "https://example.invalid/jobs/demo-ai",
+    "education": "本科",
+    "target_candidate": "2027届本科在读",
+    "experience_years": "经验不限",
+    "work_mode": "onsite",
+    "required_skills": ["Python", "RAG"],
+    "preferred_skills": ["Docker"],
+    "tech_stack": ["Python", "RAG", "Docker"],
+    "responsibilities": ["参与 RAG 应用与后端开发"],
+    "extraction_status": "ok",
+    "raw_jd": "【演示数据，不是真实招聘，不可投递】\n职位：AI 应用开发实习生\n公司：演示公司\n地点：广州\n面向2027届本科在读，经验不限。\n任职要求：Python、RAG。\n加分项：Docker。"
+  },
+  {
+    "job_title": "Python 开发（届别不符演示）",
+    "company": "演示公司，不是真实招聘",
+    "source_url": "https://example.invalid/jobs/demo-year",
+    "education": "本科",
+    "target_candidate": "仅限2026届毕业生",
+    "experience_years": "经验不限",
+    "work_mode": "onsite",
+    "required_skills": ["Python"],
+    "preferred_skills": [],
+    "tech_stack": ["Python"],
+    "extraction_status": "ok",
+    "raw_jd": "【演示数据】仅限2026届毕业生，本科，Python 开发。"
+  },
+  {
+    "job_title": "后端实习（信息待核实演示）",
+    "company": "演示公司，不是真实招聘",
+    "source_url": "https://example.invalid/jobs/demo-review",
+    "education": "",
+    "target_candidate": "",
+    "experience_years": "",
+    "required_skills": [],
+    "preferred_skills": [],
+    "tech_stack": [],
+    "extraction_status": "ok",
+    "raw_jd": "【演示数据】后端实习，具体技术、学历、届别和到岗要求待招聘方说明。"
+  }
+]
