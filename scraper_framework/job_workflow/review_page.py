@@ -78,7 +78,7 @@ def render_page(rows, *, token, notice='', summary=None):
         cards.append(f'''<article id="job-{job_id}"><div class="row">{select}<h2>#{job_id} {_e(job.get('job_title') or '职位待核实')}</h2><span class="badge">{_e(category_label)}</span><span class="badge">{_e(status)}</span></div>{snapshot}
 <p>{_e(job.get('company') or '公司待核实')} · {_e(job.get('location') or '地点待核实')} · {_e(job.get('salary_range') or '薪资未披露')} · 分数 {_e(decision.get('score'))}（不是录用概率）</p>
 {_link(job.get('source_url'))}<h3>匹配依据 / 缺口</h3><ul>{_items(decision.get('reasons'))}</ul><ul class="warning">{_items((decision.get('warnings') or []) + (content.get('warnings') or []))}</ul>
-<p>材料类型：{_e(content.get('channel', 'chat'))} · 简历版本：{_e(content.get('resume_version', 'not_selected'))}（本工作台不附加、不上传简历）</p>{edit}
+<p class="warning">{_e(row.get('availability_warning', ''))}</p><p>材料类型：{_e(content.get('channel', 'chat'))} · 简历版本：{_e(content.get('resume_version', 'not_selected'))}（本工作台不附加、不上传简历）</p>{edit}
 <details><summary>文案事实依据</summary><ul>{_items(content.get('evidence'))}</ul></details><details><summary>查看原始 JD / 抽取信息</summary><pre>{_e(row.get('raw_jd') or job.get('jd_summary') or '仅有结构化导入数据，无原始 JD；请回来源核实。')}</pre></details>
 <div class="actions">{manual}{followup}<form method="post" action="/skip">{csrf}{_hidden('job_id', job_id)}<button>跳过此岗位</button></form></div></article>''')
     stats = ' · '.join(f'{_e(k)}: {_e(v)}' for k, v in (summary or {}).items())
