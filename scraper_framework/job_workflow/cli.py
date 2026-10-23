@@ -9,6 +9,8 @@ from pathlib import Path
 from .execution import prepare_handoff
 from .service import ROOT, Workflow
 from .sources import fetch_greenhouse, load_export
+from .lifecycle import record_snapshot
+from .campus import fetch_campus
 
 
 def _json(value):
@@ -39,6 +41,10 @@ def main(argv=None):
     cycle = commands.add_parser('cycle', help='可重复的只读来源导入/分析/日报任务，不审批不发送')
     cycle.add_argument('--input', action='append', default=[], help='本地 JSON；可重复')
     cycle.add_argument('--board', action='append', default=[], help='Greenhouse board token；可重复')
+    cycle.add_argument('--campus', action='store_true', help='低频读取港中大深圳公开岗位的局部列表')
+    cycle.add_argument('--campus-url', action='append', default=[], help='优先复查的该站详情 URL；与新岗位共享上限')
+    cycle.add_argument('--campus-pages', type=int, default=1)
+    cycle.add_argument('--campus-limit', type=int, default=8)
     cycle.add_argument('--allow-network', action='store_true')
     cycle.add_argument('--report', default=str(ROOT/'output/job_workflow/daily.txt'))
     handoff = commands.add_parser('handoff', help='只预览已批准材料，绝不发送')
@@ -75,6 +81,7 @@ def main(argv=None):
             elif args.command == 'discover-greenhouse':
                 rows = fetch_greenhouse(args.board, allow_network=args.allow_network)
                 result = flow.import_rows(rows)
+                result['snapshot'] = record_snapshot(flow.repo, f'greenhouse:{args.board}', result['processed'], complete=not result['errors'])
                 _json(result)
                 return 1 if result['errors'] else 0
             elif args.command == 'report':
@@ -87,13 +94,23 @@ def main(argv=None):
             elif args.command == 'cycle':
                 result = {'processed': 0, 'errors': []}
                 sources = [('file', value) for value in args.input] + [('greenhouse', value) for value in args.board]
+                if args.campus:
+                    sources.append(('cuhk', 'public'))
                 for kind, value in sources:
                     try:
-                        rows = load_export(value) if kind == 'file' else fetch_greenhouse(value, allow_network=args.allow_network)
+                        if kind == 'cuhk':
+                            rows = fetch_campus(allow_network=args.allow_network, pages=args.campus_pages,
+                                                max_jobs=args.campus_limit, known_urls=args.campus_url)
+                        else:
+                            rows = load_export(value) if kind == 'file' else fetch_greenhouse(value, allow_network=args.allow_network)
                         imported = flow.import_rows(rows)
+                        if kind == 'greenhouse':
+                            record_snapshot(flow.repo, f'greenhouse:{value}', imported['processed'], complete=not imported['errors'])
                         result['processed'] += len(imported['processed'])
                         result['errors'].extend(imported['errors'])
                     except (OSError, ValueError, TypeError, KeyError) as exc:
+                        if kind == 'greenhouse':
+                            record_snapshot(flow.repo, f'greenhouse:{value}', [], complete=False)
                         result['errors'].append(f'{kind}: {value}: {type(exc).__name__}: {exc}')
                 result['summary'] = flow.summary()
                 result['report_changed'] = flow.write_report(args.report)
