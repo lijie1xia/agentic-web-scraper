@@ -24,7 +24,10 @@
     "RxJava",
     "SSE",
     "Hugging Face",
-    "向量检索"
+    "向量检索",
+    "LLM",
+    "SQL",
+    "Go"
   ],
   "education": "本科在读",
   "graduate_year": 2027,
@@ -42,6 +45,8 @@
     "backend_languages": ["Java", "Python"],
     "fallback_roles": ["testing", "data_engineering"],
     "fallback_policy": "only_if_no_suitable_main_roles",
+    "excluded_roles": ["data_labeling", "aigc_content"],
+    "school_tier": "普通本科",
     "company": {"unrestricted": true, "job_fit_first": true},
     "salary": {"currency": "CNY", "period": "day", "target": 180, "minimum": 150},
     "availability": {
