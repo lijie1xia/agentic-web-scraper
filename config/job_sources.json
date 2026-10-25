@@ -5,6 +5,11 @@
   "inputs": [],
   "boards": [],
   "allow_network": false,
+  "notification": {
+    "enabled": false,
+    "target": "weixin",
+    "command": ["hermes"]
+  },
   "campus": {
     "enabled": true,
     "pages": 2,
