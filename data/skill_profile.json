@@ -30,6 +30,29 @@
   "graduate_year": 2027,
   "experience_years": 0,
   "preferred_work_mode": ["remote", "hybrid", "onsite"],
+  "target_roles": ["ai_application", "backend"],
+  "personal_preferences": {
+    "location": {
+      "unrestricted": true,
+      "remote_allowed": true,
+      "overseas_allowed": true,
+      "preferred_tiers": [["广州", "深圳"], ["上海", "浙江", "北京"]],
+      "province_preferences": ["浙江"]
+    },
+    "backend_languages": ["Java", "Python"],
+    "fallback_roles": ["testing", "data_engineering"],
+    "fallback_policy": "only_if_no_suitable_main_roles",
+    "company": {"unrestricted": true, "job_fit_first": true},
+    "salary": {"currency": "CNY", "period": "day", "target": 180, "minimum": 150},
+    "availability": {
+      "confirmed_on": "2026-10-23",
+      "notice_weeks": [2, 3],
+      "days_per_week": 5,
+      "full_time": true,
+      "duration_months": 6,
+      "date_policy": "reconfirm_before_promising_start_date"
+    }
+  },
   "deal_breakers": {
     "min_education": "本科",
     "max_experience_required": 1
