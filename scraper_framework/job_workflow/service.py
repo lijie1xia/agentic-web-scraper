@@ -13,6 +13,7 @@ from .materials import build_material, validate_material
 from .offline import extract_text
 from .repository import Repository
 from .lifecycle import unavailable_reason
+from .preferences import calibrate, preference_sort_key
 
 ROOT = Path(__file__).resolve().parents[2]
 OPEN = {'READY_FOR_REVIEW', 'APPROVED'}
@@ -73,7 +74,7 @@ class Workflow:
         if not url and not job.get('external_id') and not raw:
             # A structured export without original text is not fabricated into a JD.
             job['external_id'] = 'import-' + _digest(job)
-        decision = score(job, self.profile)
+        decision = calibrate(job, self.profile, score(job, self.profile))
         decision['profile_hash'] = _digest(self.profile)
         if not raw:
             decision.setdefault('warnings', []).append('没有原始 JD，当前判断基于导入字段；发送前请核验来源。')
@@ -120,8 +121,7 @@ class Workflow:
                         row['approval_id'] = handoff['approval_id']
                 except ValueError:
                     pass
-        order = {'priority': 0, 'review': 1, 'reject': 2}
-        return sorted(result, key=lambda row: (order.get(row['decision'].get('category'), 1), -(row['decision'].get('score') or 0), row['decision'].get('role_priority') if row['decision'].get('role_priority') is not None else 999, row['id']))
+        return sorted(result, key=preference_sort_key)
 
     def summary(self):
         result = self.repo.summary()
