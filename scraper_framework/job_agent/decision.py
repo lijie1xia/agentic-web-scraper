@@ -12,7 +12,7 @@ import re
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from .skill_profile import DEFAULT_SKILL_PROFILE, load_skill_profile
-from .evaluation import graduation_constraints, role_matches
+from .evaluation import duty_role, graduation_constraints, role_matches
 
 # 技术栈满分；其余维度为加减分，总分钳制在 0–100
 _TECH_SCORE_MAX = 70
@@ -54,6 +54,7 @@ _TECH_ALIASES = {
     "llms": "llm",
     "aiagent": "agent",
     "agents": "agent",
+    "springboot": "spring",
 }
 
 
@@ -348,7 +349,11 @@ def score(job: dict, profile: dict) -> dict:
     if target_roles:
         role_priority = next((i for i, role in enumerate(target_roles)
                               if role_matches(title, role)), None)
-        if role_priority is None:
+        inferred = duty_role(job) if role_priority is None else None
+        if inferred in target_roles:
+            role_priority = target_roles.index(inferred)
+            reasons.append(f"标题为泛称，按职责原文判断方向：{inferred}")
+        elif role_priority is None:
             if not title:
                 missing_data.append("job.job_title")
             if title and deal.get("target_roles_only") is True:
@@ -389,6 +394,9 @@ def score(job: dict, profile: dict) -> dict:
             and _is_fresh_grad_text(target) and _parse_min_experience_required(target) == 0):
         min_exp = 0.0
         reasons.append("target_candidate 指向应届/在读，按 0 年经验要求处理")
+    elif min_exp is None and not str(exp_text or "").strip() and job.get("employment_type") == "internship":
+        min_exp = 0.0
+        reasons.append("实习岗未写经验要求，按 0 年经验要求处理")
 
     profile_exp = profile.get("experience_years")
     try:
@@ -455,6 +463,10 @@ def score(job: dict, profile: dict) -> dict:
     else:
         score_val -= _WORK_MODE_PENALTY
         reasons.append(f"工作方式不太匹配（岗位 {work_mode}）")
+
+    if job.get("posting_closed") is True:
+        deal_breaker = True
+        reasons.append("页面显示职位已关闭")
 
     score_val = max(0.0, min(100.0, round(score_val, 2)))
 

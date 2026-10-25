@@ -31,9 +31,11 @@ class PreferenceTests(unittest.TestCase):
     def test_profile_records_confirmation_without_replacing_credentials(self):
         saved = profile()
         original = load_skill_profile()
-        for field in ('tech_stack', 'deal_breakers', 'education', 'graduate_year',
+        for field in ('deal_breakers', 'education', 'graduate_year',
                       'experience_years', 'preferred_work_mode'):
             self.assertEqual(saved[field], original[field])
+        # 只追加用户 2026-10-25 确认可由项目证明的技能。
+        self.assertEqual(saved['tech_stack'], original['tech_stack'] + ['LLM', 'SQL', 'Go'])
         prefs = saved.get('personal_preferences', {})
         self.assertEqual(prefs.get('location'), {
             'unrestricted': True, 'remote_allowed': True, 'overseas_allowed': True,
@@ -251,15 +253,27 @@ class PreferenceTests(unittest.TestCase):
         self.assertEqual(flow.profile['personal_preferences']['availability'],
                          profile()['personal_preferences']['availability'])
 
-    def test_main_role_preference_does_not_override_stronger_match(self):
+    def test_ai_role_ranks_before_backend_within_category(self):
         flow = Workflow(':memory:', profile=profile(), resume=RESUME)
         self.addCleanup(flow.close)
         backend = flow._ingest({'job': job(location='海外')})
         ai_lower = flow._ingest({'job': job(job_title='AI应用开发实习生', location='广州',
                                            preferred_skills=['Rust'])})
         ai_equal = flow._ingest({'job': job(job_title='AI应用开发实习生', location='海外')})
+        self.assertLess(ai_lower['decision']['score'], backend['decision']['score'])
         self.assertEqual([row['id'] for row in flow.rows()],
-                         [ai_equal['id'], backend['id'], ai_lower['id']])
+                         [ai_equal['id'], ai_lower['id'], backend['id']])
+
+    def test_full_time_ranks_after_internship_within_category(self):
+        flow = Workflow(':memory:', profile=profile(), resume=RESUME)
+        self.addCleanup(flow.close)
+        full_time = flow._ingest({'job': job(job_title='AI应用开发工程师', salary_range='11-20K',
+                                             employment_type='full_time')})
+        intern = flow._ingest({'job': job(job_title='Java后端实习生', salary_range='',
+                                          employment_type='internship')})
+        self.assertEqual({full_time['decision']['category'], intern['decision']['category']}, {'review'})
+        self.assertEqual([row['id'] for row in flow.rows()], [intern['id'], full_time['id']])
+        self.assertTrue(any('应届全职岗' in text for text in full_time['decision']['warnings']))
 
     def test_profiles_without_personal_preferences_keep_existing_behavior(self):
         from scraper_framework.job_workflow.preferences import calibrate

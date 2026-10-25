@@ -66,9 +66,9 @@ def role_matches(title: str, preference: str) -> bool:
     def families(value: str) -> set[str]:
         text = re.sub(r"[\s_-]+", "", value.lower())
         matched = set()
-        if re.search(r"ai应用|aiapplication|aiapps?|大模型应用|llmapplication|智能体|agent开发", text):
+        if re.search(r"ai应用|aiapplication|aiapps?|大模型|智能体|(?:(?<![a-z])|(?<=ai))(?:llm|agent(?!cy)|rag(?![a-z]))|(?<![a-z])ai(?:技术)?开发", text):
             matched.add("ai_application")
-        if re.search(r"后端|服务端|backend", text):
+        if re.search(r"后端|服务端|backend|(?<![a-z])(?:java|python|golang|go)(?:开发|工程师|后端)", text):
             matched.add("backend")
         return matched
 
@@ -78,3 +78,16 @@ def role_matches(title: str, preference: str) -> bool:
     normalized_title = re.sub(r"[\s_-]+", "", title.lower())
     normalized_preference = re.sub(r"[\s_-]+", "", preference.lower())
     return bool(normalized_preference) and normalized_preference in normalized_title
+
+
+_GENERIC_AI_TITLE = re.compile(r"^(?:ai|人工智能)(?:实习生?|工程师|开发)?(?:实习生?)?$", re.I)
+_AI_DUTY = re.compile(r"agent|智能体|rag|大模型|llm|function\s*calling|mcp", re.I)
+
+
+def duty_role(job: dict) -> str | None:
+    """标题只写"AI实习生"这类泛称时，按职责原文判断是否为 AI 应用开发。"""
+    title = re.sub(r"\s+", "", str(job.get("job_title") or ""))
+    if not _GENERIC_AI_TITLE.match(title):
+        return None
+    duties = " ".join(str(item) for item in job.get("responsibilities") or [])
+    return "ai_application" if _AI_DUTY.search(duties) and re.search(r"开发|编码|实现", duties) else None

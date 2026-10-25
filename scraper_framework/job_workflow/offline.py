@@ -27,9 +27,9 @@ _LABELS = {
 
 
 _TECH = (
-    "Python", "JavaScript", "TypeScript", "Java", "C++", "C#", "Go", "Rust",
+    "Python", "JavaScript", "TypeScript", "Java", "C++", "C#", "Go", "Golang", "Rust",
     "SQL", "MySQL", "PostgreSQL", "Redis", "MongoDB", "Linux", "Git",
-    "Docker", "Kubernetes", "Nginx", "Flask", "FastAPI", "Django", "Spring Boot",
+    "Docker", "Kubernetes", "Nginx", "Flask", "FastAPI", "Django", "Spring Boot", "SpringBoot", "Spring",
     "LangChain", "LangGraph", "RAG", "AI Agent", "Agent", "MCP", "LLM",
     "Prompt Engineering", "Function Calling", "PyTorch", "TensorFlow",
     "React", "Vue", "Node.js", "Playwright", "DrissionPage", "XPath",
@@ -40,18 +40,88 @@ _HEADINGS = {
     "preferred_skills": ("加分项", "优先条件", "加分条件", "preferred", "preferred skills", "nice to have", "bonus"),
     "responsibilities": ("岗位职责", "工作职责", "职位描述", "职责", "responsibilities"),
 }
-_OPTIONAL = re.compile(r"优先|加分|优选|preferred|nice[- ]to[- ]have|optional|bonus", re.I)
-_AMBIGUOUS = re.compile(r"无需|不要求|不需要|不限|至少一种|之一|或|\bor\b|not required|no experience", re.I)
+_OPTIONAL = re.compile(r"优先|加分|优选|更好|更佳|preferred|nice[- ]to[- ]have|optional|bonus", re.I)
+_AMBIGUOUS = re.compile(r"无需|不要求|不需要|不限|至少一种|之一|任一|或|\bor\b|not required|no experience", re.I)
+# 招聘 App 复制文本的头部：标题、薪资、"城市 5天/周 6个月 本科" 一类无标签信息行。
+_HEADER_SALARY = r"\d+(?:\.\d+)?(?:\s*[-~～至到–]\s*\d+(?:\.\d+)?)?\s*(?:元/天|元/日|[kK](?:·\d+薪)?)"
+_HEADER_CITY = re.compile(r"[\u4e00-\u9fa5]{2,6}(?:-[\u4e00-\u9fa5]{2,8})?")
+_HEADER_TOKENS = {
+    "days_per_week": re.compile(r"(\d)天/周"),
+    "internship_months": re.compile(r"(\d+)个月"),
+    "education": re.compile(r"(本科|硕士|博士|大专|学历不限)"),
+    "experience_years": re.compile(r"(经验不限|在校/应届|\d+-\d+年|\d+年以[上内])"),
+}
+_FRESH_ALTERNATIVE = re.compile(r"应届[^。；\n]{0,20}(?:也可|均可|亦可|可考虑)")
 _OTHER_HEADINGS = {"福利待遇", "公司介绍", "关于我们", "招聘流程", "面试流程", "联系方式", "benefits", "about us", "about company", "interview process"}
 
 
 def _terms(text):
     matches = []
     for term in _TECH:
-        match = re.search(r"(?<![A-Za-z0-9_])" + re.escape(term) + r"(?![A-Za-z0-9_+#])", text, re.I)
-        if match:
-            matches.append((match.start(), term))
+        for match in re.finditer(r"(?<![A-Za-z0-9_])" + re.escape(term) + r"(?![A-Za-z0-9_+#])", text, re.I):
+            # ReAct 是 Agent 推理范式，不是前端框架 React。
+            if match.group(0) != "ReAct":
+                matches.append((match.start(), term))
+                break
     return [term for _, term in sorted(matches)]
+
+
+def _set_header(result, field, value, raw, number):
+    """头部信息只补空字段，显式标签优先。"""
+    if not result.get(field) or result[field] == "unknown":
+        result[field] = value
+        result["evidence"].append({"field": field, "value": value, "quote": raw, "line": number, "status": "header"})
+
+
+def _read_header(result, text):
+    lines = [(number, raw) for number, raw in enumerate(text.splitlines(), 1) if raw.strip()][:4]
+    if not lines:
+        return
+    number, raw = lines[0]
+    title, salary = raw.strip(), ""
+    match = re.fullmatch(r"(.+?)\s*(" + _HEADER_SALARY + r")", title)
+    if match:
+        title, salary = match.group(1).strip(), match.group(2)
+    elif len(lines) > 1 and re.fullmatch(_HEADER_SALARY, lines[1][1].strip()):
+        salary = lines[1][1].strip()
+    meta = None
+    for meta_number, meta_raw in lines[1:]:
+        tokens = meta_raw.split()
+        if len(tokens) >= 2 and _HEADER_CITY.fullmatch(tokens[0]):
+            found = {field: pattern.search(meta_raw) for field, pattern in _HEADER_TOKENS.items()}
+            if any(found.values()):
+                meta = (meta_number, meta_raw, tokens, found)
+                break
+    # 没有薪资或信息行佐证时，第一行不当作标题。
+    if not salary and not meta:
+        return
+    headings = {heading.casefold() for values in _HEADINGS.values() for heading in values}
+    if len(title) <= 40 and not re.search(r"[:：]", title) and title.casefold() not in headings:
+        _set_header(result, "job_title", title, raw, number)
+    else:
+        title = ""
+    if salary:
+        _set_header(result, "salary_range", salary, raw, number)
+    if meta:
+        number, raw, tokens, found = meta
+        _set_header(result, "location", tokens[0], raw, number)
+        for field in ("days_per_week", "internship_months"):
+            if found[field]:
+                _set_header(result, field, int(found[field].group(1)), raw, number)
+        if found["education"]:
+            _set_header(result, "education", found["education"].group(1), raw, number)
+        experience = found["experience_years"].group(1) if found["experience_years"] else ""
+        if experience == "在校/应届":
+            _set_header(result, "target_candidate", experience, raw, number)
+        elif re.search(r"\d", experience) and _FRESH_ALTERNATIVE.search(text):
+            result["warnings"].append(f"头部要求{experience}经验，但正文接受应届，需人工核实。")
+        elif experience:
+            _set_header(result, "experience_years", experience, raw, number)
+        internship = bool(found["days_per_week"] or found["internship_months"] or "实习" in tokens
+                          or "实习" in title or re.search(r"元/[天日]", salary))
+        monthly = bool(re.search(r"[kK]", salary))
+        if internship or monthly:
+            _set_header(result, "employment_type", "internship" if internship else "full_time", raw, number)
 
 
 def _record_value(result, candidates, field, value, raw, number):
@@ -153,4 +223,8 @@ def extract_text(text: str, *, source_url: str = "") -> dict:
                     result["warnings"].append(f"{field} 标签内容无法确认，保留原文待核对。")
                     continue
                 _record_value(result, labeled_values, field, value, raw, number)
+        if line == "职位已关闭":
+            result["posting_closed"] = True
+            result["evidence"].append({"field": "posting_closed", "quote": raw, "line": number})
+    _read_header(result, text)
     return result
