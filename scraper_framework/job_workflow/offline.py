@@ -228,3 +228,40 @@ def extract_text(text: str, *, source_url: str = "") -> dict:
             result["evidence"].append({"field": "posting_closed", "quote": raw, "line": number})
     _read_header(result, text)
     return result
+
+def _header_at(lines, index):
+    """只把空行后的「标题 + 薪资或城市信息」当作下一条岗位。"""
+    if index > 0 and lines[index - 1].strip():
+        return False
+    title = lines[index].strip()
+    if (not title or len(title) > 40 or re.search(r"[:：]", title)
+            or re.fullmatch(_HEADER_SALARY, title)):
+        return False
+    following = [line.strip() for line in lines[index + 1:index + 6] if line.strip()][:3]
+    # 标题行已经带薪资时，下一行必须是城市信息，避免正文里的重复标题被拆开。
+    if re.search(_HEADER_SALARY, title):
+        following = following[:1]
+    elif following and re.fullmatch(_HEADER_SALARY, following[0]):
+        return True
+    for line in following:
+        tokens = line.split()
+        if (len(tokens) >= 2 and _HEADER_CITY.fullmatch(tokens[0])
+                and any(pattern.search(line) for pattern in _HEADER_TOKENS.values())):
+            return True
+    return False
+
+
+def split_postings(text: str) -> list[str]:
+    """按招聘 App 头部把多条 JD 切开。没有第二个头部时原样返回。"""
+    if not isinstance(text, str) or not text.strip():
+        raise ValueError("JD 必须是非空文本")
+    lines = text.splitlines()
+    starts = [index for index in range(len(lines)) if _header_at(lines, index)]
+    if len(starts) <= 1:
+        return [text]
+    chunks = []
+    for start, end in zip(starts, starts[1:] + [len(lines)]):
+        chunk = "\n".join(lines[start:end]).strip()
+        if chunk:
+            chunks.append(chunk)
+    return chunks or [text]
