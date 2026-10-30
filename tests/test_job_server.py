@@ -18,6 +18,10 @@ class FakeService:
         self.calls.append((text, source_url))
         return {'id': 1}
 
+    def import_batch_text(self, text, *, source_url=''):
+        row = self.import_text(text, source_url=source_url)
+        return {'processed': [row['id']], 'errors': []}
+
     def approve_batch(self, selections, *, acknowledge_review):
         self.calls.append(('approve', selections, acknowledge_review))
         return {'approved': [1], 'errors': []}

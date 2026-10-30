@@ -17,6 +17,52 @@ def _json(value):
     print(json.dumps(value, ensure_ascii=False, indent=2))
 
 
+def import_inbox(flow, path):
+    """按消息 ID 增量导入 JSONL。坏行只记错误，不推进该行。"""
+    path = Path(path)
+    state_path = path.with_name(path.name + '.state.json')
+    state = {'ids': []}
+    if state_path.exists():
+        loaded = json.loads(state_path.read_text(encoding='utf-8-sig'))
+        if not isinstance(loaded, dict) or not isinstance(loaded.get('ids'), list):
+            raise ValueError('收件进度文件损坏')
+        state = loaded
+    seen = {item for item in state['ids'] if isinstance(item, str)}
+    result = {'processed': [], 'errors': [], 'skipped': 0}
+    lines = path.read_text(encoding='utf-8-sig').splitlines() if path.exists() else None
+    if lines is None:
+        result['errors'].append('收件箱不存在')
+        return result
+    for number, line in enumerate(lines, 1):
+        if not line.strip():
+            continue
+        try:
+            item = json.loads(line)
+            message_id = item.get('message_id') if isinstance(item, dict) else None
+            text = item.get('text') if isinstance(item, dict) else None
+            if not isinstance(message_id, str) or not message_id.strip() or not isinstance(text, str):
+                raise ValueError('收件缺少 message_id 或 text')
+        except (json.JSONDecodeError, TypeError, ValueError, AttributeError) as exc:
+            result['errors'].append(f'第{number}行：{exc}')
+            continue
+        if message_id in seen:
+            result['skipped'] += 1
+            continue
+        try:
+            batch = flow.import_batch_text(text)
+        except (ValueError, TypeError, KeyError) as exc:
+            result['errors'].append(f'第{number}行：{exc}')
+            continue
+        result['processed'].extend(batch['processed'])
+        result['errors'].extend(f'第{number}行{error}' for error in batch['errors'])
+        seen.add(message_id)
+        state['ids'].append(message_id)
+    state_path.parent.mkdir(parents=True, exist_ok=True)
+    state_path.write_text(json.dumps({'ids': state['ids']}, ensure_ascii=False), encoding='utf-8')
+    result['unique_jobs'] = len(set(result['processed']))
+    return result
+
+
 def main(argv=None):
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(encoding='utf-8')
@@ -33,6 +79,8 @@ def main(argv=None):
     paste = commands.add_parser('paste', help='从 UTF-8 文件读取 JD 原文')
     paste.add_argument('path')
     paste.add_argument('--url', default='')
+    inbox = commands.add_parser('import-inbox', help='从 JSONL 收件箱增量导入，不调用模型')
+    inbox.add_argument('path')
     discover = commands.add_parser('discover-greenhouse', help='读取指定公司的 Greenhouse 官方公开职位 API')
     discover.add_argument('board')
     discover.add_argument('--allow-network', action='store_true')
@@ -76,8 +124,13 @@ def main(argv=None):
                 _json(result)
                 return 1 if result['errors'] else 0
             elif args.command == 'paste':
-                row = flow.import_text(Path(args.path).read_text(encoding='utf-8-sig'), source_url=args.url)
-                _json({'id': row['id'], 'decision': row['decision'], 'status': row['status']})
+                result = flow.import_batch_text(Path(args.path).read_text(encoding='utf-8-sig'), source_url=args.url)
+                _json(result)
+                return 1 if result['errors'] else 0
+            elif args.command == 'import-inbox':
+                result = import_inbox(flow, args.path)
+                _json(result)
+                return 1 if result['errors'] else 0
             elif args.command == 'discover-greenhouse':
                 rows = fetch_greenhouse(args.board, allow_network=args.allow_network)
                 result = flow.import_rows(rows)

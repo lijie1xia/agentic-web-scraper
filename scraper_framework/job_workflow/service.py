@@ -10,7 +10,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from ..job_agent.decision import score
 from .materials import build_material, validate_material
-from .offline import extract_text
+from .offline import extract_text, split_postings
 from .repository import Repository
 from .lifecycle import unavailable_reason
 from .preferences import calibrate, preference_sort_key
@@ -21,6 +21,15 @@ OPEN = {'READY_FOR_REVIEW', 'APPROVED'}
 
 def _digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True, separators=(',', ':')).encode('utf-8')).hexdigest()
+
+
+def _fit_notice(text, limit=4000):
+    """微信单条上限内保留开头；超出时明确还有内容在审核台。"""
+    note = '\n其余岗位请在本机审核台查看。\n'
+    if len(text) <= limit:
+        return text
+    kept = text[:limit - len(note)].rstrip()
+    return kept + note
 
 
 def canonical_url(value):
@@ -56,6 +65,17 @@ class Workflow:
         if not isinstance(text, str) or not text.strip() or len(text) > 100000:
             raise ValueError('JD 必须是非空文本且不超过 100000 字符')
         return self._ingest({'job': {}, 'raw_jd': text, 'source': 'manual'}, source_url=source_url)
+
+    def import_batch_text(self, text, *, source_url=''):
+        """按头部拆开后逐条导入；一条失败不影响其余条目。"""
+        result = {'processed': [], 'errors': []}
+        for index, part in enumerate(split_postings(text), 1):
+            try:
+                result['processed'].append(self.import_text(part, source_url=source_url)['id'])
+            except (ValueError, TypeError, KeyError) as exc:
+                result['errors'].append(f'第{index}条：{exc}')
+        result['unique_jobs'] = len(set(result['processed']))
+        return result
 
     def _ingest(self, item, *, source_url=None):
         if not isinstance(item, dict) or not isinstance(item.get('job'), dict):
@@ -198,16 +218,34 @@ class Workflow:
         if any(row['source'] == 'cuhk' for row in rows):
             lines.append('港中大深圳来源为局部列表及指定详情监测，不覆盖全站；校外申请资格须另行核验。')
         lines.extend(f'{key}: {value}' for key, value in self.summary().items())
-        lines.append('')
+        grouped = {'priority': [], 'review': [], 'reject': []}
         for row in rows:
-            decision = row['decision']
-            title = row['job'].get('job_title') or '职位待核实'
-            reminder = '；已超过3天，可人工检查回复' if row['status'] == 'SUBMITTED' and time.time()-row['updated_at'] >= 3*86400 else ''
-            availability = f"；{row['availability_warning']}" if row['availability_warning'] else ''
-            lines.append(f"#{row['id']} {title} | {decision.get('category', 'review')} | {row['status']} | 版本{row['revision']}{reminder}{availability}")
-            if row['job'].get('source_url'):
-                lines.append(row['job']['source_url'])
-        return '\n'.join(lines) + '\n'
+            grouped.setdefault(row['decision'].get('category') or 'review', []).append(row)
+        lines.extend(['', '优先考虑'])
+        if grouped['priority']:
+            for row in grouped['priority']:
+                lines.append(self._report_heading(row))
+                message = (row.get('material') or {}).get('content', {}).get('message')
+                if message:
+                    lines.extend(['', message, ''])
+        else:
+            lines.append('无')
+        lines.extend(['', '需要核实'])
+        if grouped['review']:
+            for row in grouped['review']:
+                reason = next((item for item in row['decision'].get('warnings') or row['decision'].get('reasons') or [] if item), '需人工核实')
+                lines.append(f"{self._report_heading(row)}：{reason}")
+        else:
+            lines.append('无')
+        lines.extend(['', f"明确不符合：{len(grouped['reject'])} 条"])
+        return _fit_notice('\n'.join(lines).strip() + '\n')
+
+    @staticmethod
+    def _report_heading(row):
+        title = row['job'].get('job_title') or '职位待核实'
+        reminder = '；已超过3天，可人工检查回复' if row['status'] == 'SUBMITTED' and time.time()-row['updated_at'] >= 3*86400 else ''
+        availability = f"；{row['availability_warning']}" if row['availability_warning'] else ''
+        return f"#{row['id']} {title} | {row['status']} | 版本{row['revision']}{reminder}{availability}"
 
     def write_report(self, path):
         """No duplicate notification on unchanged summaries; atomic local replacement."""

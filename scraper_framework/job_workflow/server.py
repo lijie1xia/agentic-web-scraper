@@ -94,8 +94,10 @@ def create_server(service_factory, *, host='127.0.0.1', port=8765):
             try:
                 path = urlsplit(self.path).path
                 if path == '/import':
-                    row = service.import_text(value('text'), source_url=value('url'))
-                    notice = f"已保存岗位 #{row['id']}；未调用模型，未发送。"
+                    result = service.import_batch_text(value('text'), source_url=value('url'))
+                    notice = f"已处理 {len(result['processed'])} 条，未进入 {len(result['errors'])} 条；未调用模型，未发送。"
+                    if result['errors']:
+                        notice += '\n' + '\n'.join(result['errors'])
                 elif path == '/approve':
                     selected = list(dict.fromkeys(fields.get('selected', [])))
                     selections = [{'job_id': int(i), 'expected_jd_hash': value(f'jd_{i}'), 'expected_material_hash': value(f'material_{i}'), 'expected_revision': int(value(f'revision_{i}'))} for i in selected]

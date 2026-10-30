@@ -1,0 +1,3 @@
+name: job-inbox
+version: 0.1.0
+description: 把白名单内的微信私聊文本写入本地岗位收件箱，不调用模型。复制到 Hermes 插件目录后，设置 JOB_INBOX_PATH 与 JOB_INBOX_USERS，并加入 plugins.enabled。

@@ -85,7 +85,7 @@ def render_page(rows, *, token, notice='', summary=None):
     return f'''<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>本地求职审核台</title><style nonce="{_e(token)}">{STYLE}</style></head><body>
 <h1>本地求职审核台</h1><p class="muted">离线规则 + 事实模板 · 不调用 LLM · 审核后人工发送 · 仅本机访问</p><nav><a href="/">全部岗位</a><a href="/?category=priority">优先考虑</a><a href="/?category=review">待核实</a><a href="/?status=APPROVED">已批准</a><a href="/report">查看摘要</a></nav><p>{stats}</p>
 {f'<div class="notice">{_e(notice)}</div>' if notice else ''}
-<details><summary>加入岗位：粘贴 JD（不会自动打开链接）</summary><section><form method="post" action="/import">{csrf}<input type="text" name="url" placeholder="可选：岗位原始链接"><textarea name="text" required placeholder="职位：…&#10;公司：…&#10;任职要求：…"></textarea><button class="primary">离线分析并加入岗位池</button></form></section></details>
+<details><summary>加入岗位：可一次粘贴多条 JD（不会自动打开链接）</summary><section><form method="post" action="/import">{csrf}<input type="text" name="url" placeholder="可选：岗位原始链接"><textarea name="text" required placeholder="可粘贴多条招聘 App 复制的 JD，每条以职位标题和薪资开头"></textarea><button class="primary">离线分析并加入岗位池</button></form></section></details>
 <form id="batch" method="post" action="/approve">{csrf}</form>{''.join(cards) or '<section>没有岗位。先粘贴 JD，或用 CLI 导入现有 JSON。</section>'}
 <div class="approvebar"><button type="button" data-select-all>选择当前可审核项</button><label><input form="batch" type="checkbox" name="acknowledge_review" value="yes">我已逐项核实待确认条件和文案事实</label><button class="primary" form="batch">批准所选：仅人工联系准备</button><small>批准绑定当前 JD 与材料版本，24 小时有效；不是自动投递授权。</small></div>
 <script nonce="{_e(token)}">{SCRIPT}</script></body></html>'''

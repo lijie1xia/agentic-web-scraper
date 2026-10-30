@@ -36,7 +36,8 @@ def main(argv=None):
                 raise ValueError('通知配置 command 必须是非空字符串列表')
         inputs, boards = config.get('inputs', []), config.get('boards', [])
         campus = config.get('campus', {})
-        if not inputs and not boards and campus.get('enabled') is not True:
+        inbox = config.get('inbox')
+        if not inputs and not boards and campus.get('enabled') is not True and not inbox:
             raise ValueError('请至少配置一个已核验的岗位来源')
         report = resolve_path(config.get('report', 'output/job_workflow/daily.txt'))
         state = resolve_path(config.get('notice_state', 'output/job_workflow/last_notice.txt'))
@@ -56,15 +57,30 @@ def main(argv=None):
                 command.extend(['--campus-url', url])
         if config.get('allow_network') is True:
             command.append('--allow-network')
+        inbox_errors = []
+        if inbox:
+            inbox_run = subprocess.run(
+                [sys.executable, '-S', str(ROOT / 'scripts/run_job_workflow.py'), '--db', str(database),
+                 'import-inbox', str(resolve_path(inbox))],
+                cwd=ROOT, capture_output=True, text=True, encoding='utf-8', timeout=300)
+            if not inbox_run.stdout.strip():
+                inbox_errors.append(inbox_run.stderr.strip() or '收件箱导入未返回结果')
+            else:
+                inbox_outcome = json.loads(inbox_run.stdout)
+                inbox_errors.extend(inbox_outcome.get('errors') or [])
+        if not inputs and not boards and campus.get('enabled') is not True:
+            command = [sys.executable, '-S', str(ROOT / 'scripts/run_job_workflow.py'), '--db', str(database),
+                       'report', '--output', str(report)]
         result = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, encoding='utf-8', timeout=300)
         if not result.stdout.strip():
             raise RuntimeError(result.stderr.strip() or '岗位任务未返回执行结果')
         outcome = json.loads(result.stdout)
-        if result.returncode not in (0, 1) or 'errors' not in outcome:
+        if result.returncode not in (0, 1) or ('errors' not in outcome and 'report_changed' not in outcome):
             raise RuntimeError(result.stderr.strip() or '岗位任务执行失败')
         notice = report.read_text(encoding='utf-8')
-        if outcome['errors']:
-            notice += '\n来源异常（其他来源继续处理）：\n' + '\n'.join(outcome['errors']) + '\n'
+        errors = list(outcome.get('errors') or []) + inbox_errors
+        if errors:
+            notice += '\n来源异常（其他来源继续处理）：\n' + '\n'.join(errors) + '\n'
         previous = state.read_text(encoding='utf-8') if state.exists() else None
         if notice != previous:
             print(notice, end='', flush=True)
