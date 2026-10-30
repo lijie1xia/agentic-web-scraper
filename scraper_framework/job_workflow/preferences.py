@@ -105,6 +105,8 @@ def calibrate(job, profile, decision):
             elif job.get('employment_type') == 'full_time':
                 warning = (f"应届全职岗（{job.get('salary_range')}），通常毕业取得证书后才能正式入职，"
                            '排在实习岗之后；不换算日薪。')
+            elif job.get('extraction_status') == 'header_unparsed':
+                warning = '解析器未识别头部，薪资等待核实；不把空薪资当成原文未写。'
             else:
                 warning = '薪资缺失、非明确人民币日薪或含歧义，需人工复核；不换算月薪或外币。'
             result.setdefault('warnings', []).append(warning)

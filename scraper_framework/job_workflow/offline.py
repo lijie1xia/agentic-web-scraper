@@ -51,6 +51,24 @@ _HEADER_TOKENS = {
     "education": re.compile(r"(本科|硕士|博士|大专|学历不限)"),
     "experience_years": re.compile(r"(经验不限|在校/应届|\d+-\d+年|\d+年以[上内])"),
 }
+# 手机复制的另一种头部：日期、「正在招聘」、斜杠分隔的城市/日薪/学历。
+# 出勤和实习月数沿用已有字段，不塞进薪资或学历。
+_DATE_LINE = re.compile(
+    r"^(?:"
+    r"\d{4}[./\-年]\d{1,2}(?:[./\-月]\d{1,2}日?)?"
+    r"|\d{1,2}[./\-]\d{1,2}[./\-]\d{2,4}"
+    r"|\d{1,2}\s*(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec|0ct)\.?(?:[\s.]*\d{4})"
+    r")$",
+    re.I,
+)
+_RECRUITING_LINE = re.compile(r"^(.{2,40}?)(?:正在招聘|招聘中)$")
+_ZONE_STOP = re.compile(r"^(?:【|职位详情|岗位职责|任职要求|职位要求|职位描述|工作内容)")
+_AL_AGENT = re.compile(r"(?<![A-Za-z])Al(?=\s+Agent\b)")
+_AI_AGENT = re.compile(r"(?<![A-Za-z])AI\s+Agent\b")
+_SLASH_EDU = re.compile(r"本科|硕士|博士|大专|学历不限")
+_SLASH_EXP = re.compile(r"经验不限|\d+-\d+年|\d+年以[上内]")
+_INTERN_DAYS = re.compile(r"每周(?:实习)?至少\s*(\d)\s*天|(\d)\s*天/周")
+_INTERN_MONTHS = re.compile(r"连续(?:实习)?\s*(\d+)\s*个月")
 _FRESH_ALTERNATIVE = re.compile(r"应届[^。；\n]{0,20}(?:也可|均可|亦可|可考虑)")
 _OTHER_HEADINGS = {"福利待遇", "公司介绍", "关于我们", "招聘流程", "面试流程", "联系方式", "benefits", "about us", "about company", "interview process"}
 
@@ -66,11 +84,237 @@ def _terms(text):
     return [term for _, term in sorted(matches)]
 
 
-def _set_header(result, field, value, raw, number):
+def _set_header(result, field, value, raw, number, layout=None):
     """头部信息只补空字段，显式标签优先。"""
     if not result.get(field) or result[field] == "unknown":
         result[field] = value
-        result["evidence"].append({"field": field, "value": value, "quote": raw, "line": number, "status": "header"})
+        item = {"field": field, "value": value, "quote": raw, "line": number, "status": "header"}
+        if layout:
+            item["layout"] = layout
+        result["evidence"].append(item)
+
+
+def _header_zone(text):
+    """职位详情之前的几行才是头部，避免正文里的斜杠被当成字段。"""
+    zone = []
+    for number, raw in enumerate(text.splitlines(), 1):
+        line = raw.strip()
+        if not line:
+            continue
+        if zone and _ZONE_STOP.match(line):
+            break
+        zone.append((number, raw, line))
+        if len(zone) >= 8:
+            break
+    return zone
+
+
+def _slash_fields(line):
+    """只接受带字段分隔符、且能同时对上城市或薪资和其他已知字段的一行。"""
+    if not re.search(r"[/／|｜]", line):
+        return None
+    protected = (line.replace("元/天", "\u0001").replace("元/日", "\u0002").replace("天/周", "\u0003")
+                 .replace("元／天", "\u0001").replace("元／日", "\u0002").replace("天／周", "\u0003"))
+    if not re.search(r"[/／|｜]", protected):
+        return None
+    parts = []
+    for part in re.split(r"\s*[/／|｜]\s*", protected):
+        part = part.strip().replace("\u0001", "元/天").replace("\u0002", "元/日").replace("\u0003", "天/周")
+        if part:
+            parts.append(part)
+    fields = {"city": "", "salary": "", "education": "", "candidates": [], "experience": "",
+              "days": None, "months": None}
+    known = 0
+    for part in parts:
+        # 学历、在校/应届也是两三个汉字，必须先于城市判断，避免整行被当成多个城市。
+        if re.fullmatch(_HEADER_SALARY, part):
+            if fields["salary"]:
+                return None
+            fields["salary"] = part
+            known += 1
+            continue
+        if _SLASH_EDU.fullmatch(part):
+            if fields["education"]:
+                return None
+            fields["education"] = part
+            known += 1
+            continue
+        if part in {"在校", "应届", "在校生", "应届生"}:
+            fields["candidates"].append(part)
+            known += 1
+            continue
+        if _SLASH_EXP.fullmatch(part):
+            if fields["experience"]:
+                return None
+            fields["experience"] = part
+            known += 1
+            continue
+        day = re.fullmatch(r"(\d)\s*天/周|每周(?:实习)?至少\s*(\d)\s*天", part)
+        if day:
+            fields["days"] = int(next(group for group in day.groups() if group))
+            known += 1
+            continue
+        month = re.fullmatch(r"(?:连续(?:实习)?)?\s*(\d+)\s*个月", part)
+        if month:
+            fields["months"] = int(month.group(1))
+            known += 1
+            continue
+        if _HEADER_CITY.fullmatch(part):
+            if fields["city"]:
+                return None
+            fields["city"] = part
+            known += 1
+            continue
+    if known < 2 or not (fields["city"] or fields["salary"]):
+        return None
+    return fields
+
+
+def _candidate_value(parts):
+    ordered = []
+    for part in parts:
+        value = "在校" if part in {"在校", "在校生"} else "应届"
+        if value not in ordered:
+            ordered.append(value)
+    if set(ordered) == {"在校", "应届"}:
+        return "在校/应届"
+    if len(ordered) == 1:
+        return ordered[0]
+    return ""
+
+
+def _normalize_copied_title(title, text):
+    """正文已写 AI Agent 时，才把标题里单独的 Al Agent 规范为 AI。不改 raw_text，也不改其他词。"""
+    if _AL_AGENT.search(title) and _AI_AGENT.search(text):
+        return _AL_AGENT.sub("AI", title, count=1), True
+    return title, False
+
+
+def _apply_experience(result, experience, text, raw, number, layout=None):
+    if experience == "在校/应届":
+        _set_header(result, "target_candidate", experience, raw, number, layout)
+    elif re.search(r"\d", experience) and _FRESH_ALTERNATIVE.search(text):
+        result["warnings"].append(f"头部要求{experience}经验，但正文接受应届，需人工核实。")
+    elif experience:
+        _set_header(result, "experience_years", experience, raw, number, layout)
+
+
+def _apply_employment(result, *, title, salary, days, months, raw, number, layout=None):
+    internship = bool(days or months or "实习" in (title or "") or re.search(r"元/[天日]", salary or ""))
+    monthly = bool(re.search(r"[kK]", salary or ""))
+    if internship or monthly:
+        _set_header(result, "employment_type", "internship" if internship else "full_time", raw, number, layout)
+
+
+def _read_internship_requirement(result, text):
+    """只读「实习要求」标题本身或紧随的一行，不从职责正文里猜月数。"""
+    lines = text.splitlines()
+    clause, number, raw = "", None, ""
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        inline = re.fullmatch(r"【实习要求】\s*(.+)", stripped)
+        if inline:
+            number, raw, clause = index + 1, line, inline.group(1)
+            break
+        if stripped in {"【实习要求】", "实习要求"}:
+            number, raw = index + 1, line
+            for follow in lines[index + 1:index + 3]:
+                if follow.strip():
+                    number = lines.index(follow, index + 1) + 1
+                    raw, clause = follow, follow.strip().lstrip("-• ").strip()
+                    break
+            break
+    if number is None:
+        return
+    day, month = _INTERN_DAYS.search(clause), _INTERN_MONTHS.search(clause)
+    if day:
+        _set_header(result, "days_per_week", int(next(group for group in day.groups() if group)), raw, number)
+    if month:
+        _set_header(result, "internship_months", int(month.group(1)), raw, number)
+    if not day and not month:
+        result["warnings"].append("实习要求原文无法识别出勤或时长，未猜测。")
+
+
+def _read_slash_header(result, text):
+    """日期和招聘状态不当作职位名；斜杠行只填空字段。"""
+    zone = _header_zone(text)
+    meta = None
+    for index, (number, raw, line) in enumerate(zone):
+        fields = _slash_fields(line)
+        if fields:
+            meta = (index, number, raw, fields)
+            break
+    if not meta:
+        return
+    index, number, raw, fields = meta
+    title = ""
+    for prev_number, prev_raw, line in reversed(zone[:index]):
+        if _DATE_LINE.fullmatch(line) or _RECRUITING_LINE.fullmatch(line):
+            continue
+        if re.fullmatch(r"BOSS\s*ZHIPIN|BOSS直聘.*", line, re.I) or line in _OTHER_HEADINGS or line == "职位详情":
+            continue
+        if len(line) > 40 or re.search(r"[:：]", line) or re.fullmatch(_HEADER_SALARY, line):
+            break
+        stored, normalized = _normalize_copied_title(line, text)
+        _set_header(result, "job_title", stored, prev_raw, prev_number, "slash")
+        if normalized:
+            result["warnings"].append('标题中的 "Al Agent" 已按正文 "AI Agent" 规范为 AI，原文仍保留在 raw_text。')
+        elif _AL_AGENT.search(line):
+            result["warnings"].append('标题保留原文 "Al Agent"；正文没有可对照的 "AI Agent"，未替换字符。')
+        title = stored
+        break
+    for prev_number, prev_raw, line in zone:
+        match = _RECRUITING_LINE.fullmatch(line)
+        if not match:
+            continue
+        _set_header(result, "company", match.group(1).strip(), prev_raw, prev_number, "slash")
+        break
+    if fields["city"]:
+        _set_header(result, "location", fields["city"], raw, number, "slash")
+    if fields["salary"]:
+        _set_header(result, "salary_range", fields["salary"], raw, number, "slash")
+    if fields["education"]:
+        _set_header(result, "education", fields["education"], raw, number, "slash")
+    candidate = _candidate_value(fields["candidates"])
+    if candidate:
+        _set_header(result, "target_candidate", candidate, raw, number, "slash")
+    if fields["days"] is not None:
+        _set_header(result, "days_per_week", fields["days"], raw, number, "slash")
+    if fields["months"] is not None:
+        _set_header(result, "internship_months", fields["months"], raw, number, "slash")
+    if fields["experience"]:
+        _apply_experience(result, fields["experience"], text, raw, number, "slash")
+    _apply_employment(result, title=title or result.get("job_title", ""), salary=fields["salary"],
+                      days=fields["days"] or result.get("days_per_week"),
+                      months=fields["months"] or result.get("internship_months"),
+                      raw=raw, number=number, layout="slash")
+
+
+def _mark_header_gaps(result, text):
+    """区分原文没写和解析器没认出。认不出关键字段时不把它当成普通匹配。"""
+    if result.get("extraction_status") == "empty":
+        return
+    slash = any(item.get("layout") == "slash" for item in result["evidence"])
+    if slash:
+        if not result.get("salary_range"):
+            result["warnings"].append("薪资原文未写，未猜测。")
+        if not result.get("education"):
+            result["warnings"].append("学历原文未写，未猜测。")
+        intern_failed = any("实习要求原文无法识别" in warning for warning in result["warnings"])
+        if not result.get("days_per_week") and not intern_failed:
+            result["warnings"].append("每周出勤原文未写，未猜测。")
+        if not result.get("internship_months") and not intern_failed:
+            result["warnings"].append("实习时长原文未写，未猜测。")
+        if not result.get("job_title"):
+            result["extraction_status"] = "header_unparsed"
+            result["warnings"].append("解析器未识别职位名称，未按技术匹配作正常推荐。")
+        return
+    head = "\n".join(line.strip() for line in text.splitlines() if line.strip())
+    boss_copy = bool(re.search(r"正在招聘|职位详情", "\n".join(head.splitlines()[:8]))
+                     or re.search(r"BOSS\s*ZHIPIN|BOSS直聘", text))
+    if boss_copy and not result.get("job_title"):
+        result["extraction_status"] = "header_unparsed"
+        result["warnings"].append("识别到招聘复制文本，但头部关键字段未解析；原文已保留，未按技术匹配作正常推荐。")
 
 
 def _read_header(result, text):
@@ -79,6 +323,9 @@ def _read_header(result, text):
         return
     number, raw = lines[0]
     title, salary = raw.strip(), ""
+    # 日期或「正在招聘」开头的是另一种复制版式，留给斜杠头部解析。
+    if _DATE_LINE.fullmatch(title) or _RECRUITING_LINE.fullmatch(title):
+        return
     match = re.fullmatch(r"(.+?)\s*(" + _HEADER_SALARY + r")", title)
     if match:
         title, salary = match.group(1).strip(), match.group(2)
@@ -226,8 +473,12 @@ def extract_text(text: str, *, source_url: str = "") -> dict:
         if line == "职位已关闭":
             result["posting_closed"] = True
             result["evidence"].append({"field": "posting_closed", "quote": raw, "line": number})
+    _read_internship_requirement(result, text)
+    _read_slash_header(result, text)
     _read_header(result, text)
+    _mark_header_gaps(result, text)
     return result
+
 
 def _header_at(lines, index):
     """只把空行后的「标题 + 薪资或城市信息」当作下一条岗位。"""

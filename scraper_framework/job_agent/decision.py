@@ -245,6 +245,20 @@ def score(job: dict, profile: dict) -> dict:
             "graduation_evidence": [],
             "role_priority": None,
         }
+    if str(job.get("extraction_status") or "").strip().lower() == "header_unparsed":
+        closed = job.get("posting_closed") is True
+        return {
+            "score": None,
+            "recommend": False,
+            "reasons": ["页面显示职位已关闭"] if closed else ["头部关键字段未识别，未按技术匹配评分"],
+            "category": "reject" if closed else "review",
+            "warnings": ["解析器未识别头部，原文已保留；这不是原文缺少薪资或学历。"],
+            "missing_data": ["job.header"],
+            "missing_skills": {"required": [], "preferred": [], "unspecified": []},
+            "skill_evidence": [],
+            "graduation_evidence": [],
+            "role_priority": None,
+        }
 
     reasons: List[str] = []
     warnings: List[str] = []
