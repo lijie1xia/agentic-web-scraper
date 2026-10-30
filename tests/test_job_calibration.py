@@ -7,7 +7,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from scraper_framework.job_agent.evaluation import role_matches
-from scraper_framework.job_workflow.offline import extract_text
+from scraper_framework.job_workflow.offline import extract_text, split_postings
 from scraper_framework.job_workflow.service import Workflow
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -197,6 +197,156 @@ class SampleDecisionTests(unittest.TestCase):
     def test_zhejiang_city_counts_as_province_tier(self):
         row = self.flow.import_text(AGENT_INTERN.replace('深圳 5天', '杭州 5天'))
         self.assertEqual(row['decision']['location_priority'], 1)
+
+
+# 按手机 BOSS 长按复制的版式脱敏缩写。公司、职位编号和职责原文已替换。
+SLASH_COPY = """260ct.2026
+示例智能正在招聘
+Al Agent 应用开发实习生（A100001）
+深圳/300-400元/天/在校/应届/本科
+职位详情
+【职位描述】
+1. 参与 AI Agent 的架构设计与开发实现，学习知识检索（RAG）与工具调用。
+2. 学习 LangChain 框架下的智能体开发，使用 Python/Golang（或 C/C++/Java），并对照 Algorithm 说明。
+【职位要求】
+1. 本科及以上学历在读，计算机相关专业。
+2. 了解 LLM、RAG、AI Agent。
+【实习要求】
+- 每周实习至少5 天，连续实习3个月以上
+【你将获得】
+- 参与真实业务场景开发
+BOSS ZHIPIN
+"""
+
+SLASH_SPACED = """2026.10.26
+示例公司正在招聘
+AI Agent 应用开发实习生
+深圳 / 300–400元/天 / 在校 / 应届 / 本科 / 5天/周 / 3个月
+职位详情
+参与 AI Agent 开发。正文里的路径 docs/v1/jobs 不是城市。
+"""
+
+SLASH_FULLWIDTH = """26 Oct. 2026
+示例公司正在招聘
+AI Agent 应用开发实习生
+深圳／300-400元／天／本科
+职位详情
+参与 AI Agent 开发。
+"""
+
+
+class SlashHeaderTests(unittest.TestCase):
+    def test_old_boss_header_still_parses(self):
+        job = extract_text(AGENT_INTERN)
+        self.assertEqual((job['job_title'], job['salary_range'], job['location']),
+                         ('Agent实习', '300-500元/天', '深圳'))
+        self.assertEqual((job['days_per_week'], job['internship_months']), (5, 6))
+        self.assertEqual(job['employment_type'], 'internship')
+        self.assertEqual(job['extraction_status'], 'ok')
+
+    def test_slash_header_reads_title_city_salary_education_and_internship(self):
+        job = extract_text(SLASH_COPY, source_url='https://example.invalid/jd')
+        self.assertEqual(job['job_title'], 'AI Agent 应用开发实习生（A100001）')
+        self.assertEqual(job['company'], '示例智能')
+        self.assertEqual(job['location'], '深圳')
+        self.assertEqual(job['salary_range'], '300-400元/天')
+        self.assertEqual(job['education'], '本科')
+        self.assertEqual(job['target_candidate'], '在校/应届')
+        self.assertEqual((job['days_per_week'], job['internship_months']), (5, 3))
+        self.assertEqual(job['employment_type'], 'internship')
+        self.assertEqual(job['work_mode'], 'unknown')
+        self.assertEqual(job['experience_years'], '')
+        self.assertEqual(job['source_url'], 'https://example.invalid/jd')
+        self.assertEqual(job['extraction_status'], 'ok')
+        self.assertIn('Al Agent 应用开发实习生（A100001）', job['raw_text'])
+        self.assertTrue(any(item.get('layout') == 'slash' and item['field'] == 'job_title'
+                            for item in job['evidence']))
+
+    def test_date_and_recruiting_status_are_not_the_title(self):
+        for text in (SLASH_COPY, SLASH_SPACED, SLASH_FULLWIDTH):
+            with self.subTest(text=text.splitlines()[0]):
+                job = extract_text(text)
+                self.assertNotIn('正在招聘', job['job_title'])
+                self.assertNotIn('2026', job['job_title'])
+                self.assertNotEqual(job['job_title'], text.splitlines()[0])
+                self.assertTrue(job['job_title'].startswith('AI Agent'))
+
+    def test_body_slash_does_not_split_or_become_header_fields(self):
+        text = SLASH_COPY + '\n\n备注\n接口 a/b 与 Python/Java 共存。\n'
+        self.assertEqual(split_postings(text), [text])
+        job = extract_text(text)
+        self.assertEqual(job['location'], '深圳')
+        self.assertEqual(job['salary_range'], '300-400元/天')
+        self.assertNotIn('/', job['location'])
+        spaced = extract_text(SLASH_SPACED)
+        self.assertEqual(spaced['location'], '深圳')
+        self.assertEqual((spaced['days_per_week'], spaced['internship_months']), (5, 3))
+        self.assertNotIn('docs', spaced['location'])
+
+    def test_ai_title_is_not_damaged_by_global_replacement(self):
+        copied = extract_text(SLASH_COPY)
+        self.assertEqual(copied['job_title'], 'AI Agent 应用开发实习生（A100001）')
+        self.assertIn('Algorithm', copied['raw_text'])
+        self.assertNotIn('AIgorithm', copied['raw_text'])
+        self.assertNotIn('AIgorithm', copied['job_title'])
+        already = extract_text(SLASH_SPACED)
+        self.assertEqual(already['job_title'], 'AI Agent 应用开发实习生')
+        alert = extract_text(
+            '2026.10.26\n示例公司正在招聘\nAlert 处理实习生\n深圳/200元/天/本科\n职位详情\n处理 Alert。\n'
+        )
+        self.assertEqual(alert['job_title'], 'Alert 处理实习生')
+        kept = extract_text(
+            '2026.10.26\n示例公司正在招聘\nAl Agent 应用开发实习生\n深圳/200元/天/本科\n职位详情\n参与 Agent 开发。\n'
+        )
+        self.assertEqual(kept['job_title'], 'Al Agent 应用开发实习生')
+        self.assertTrue(any('未替换字符' in warning for warning in kept['warnings']))
+        old = extract_text('Algorithm 开发实习生\n 200元/天\n深圳 5天/周 3个月 本科\n任职要求\nPython\n')
+        self.assertEqual(old['job_title'], 'Algorithm 开发实习生')
+
+    def test_missing_salary_education_and_duration_are_not_invented(self):
+        job = extract_text(
+            '2026-10-26\n示例公司正在招聘\n数据平台实习生\n杭州/在校/应届\n职位详情\n参与 Python 开发。\n'
+        )
+        self.assertEqual(job['job_title'], '数据平台实习生')
+        self.assertEqual(job['location'], '杭州')
+        self.assertEqual(job['target_candidate'], '在校/应届')
+        self.assertEqual(job['salary_range'], '')
+        self.assertEqual(job['education'], '')
+        self.assertEqual(job['experience_years'], '')
+        self.assertNotIn('days_per_week', job)
+        self.assertNotIn('internship_months', job)
+        self.assertEqual(job['extraction_status'], 'ok')
+        self.assertTrue(any('薪资原文未写' in warning for warning in job['warnings']))
+        self.assertTrue(any('学历原文未写' in warning for warning in job['warnings']))
+        self.assertTrue(any('每周出勤原文未写' in warning for warning in job['warnings']))
+        self.assertTrue(any('实习时长原文未写' in warning for warning in job['warnings']))
+        vague = extract_text(
+            '2026.10.26\n示例公司正在招聘\n运维实习生\n深圳/180元/天/本科\n职位详情\n【实习要求】\n- 时间面议\n'
+        )
+        self.assertEqual(vague['salary_range'], '180元/天')
+        self.assertEqual(vague['education'], '本科')
+        self.assertNotIn('days_per_week', vague)
+        self.assertNotIn('internship_months', vague)
+        self.assertTrue(any('无法识别出勤或时长' in warning for warning in vague['warnings']))
+
+    def test_unparsed_header_stays_review_and_keeps_the_body(self):
+        text = '示例公司正在招聘\n职位详情\n【职位描述】\n1. 参与 AI Agent 与 Python/Golang 开发。\nBOSS ZHIPIN\n'
+        job = extract_text(text)
+        self.assertEqual(job['raw_text'], text)
+        self.assertEqual(job['job_title'], '')
+        self.assertEqual(job['salary_range'], '')
+        self.assertEqual(job['extraction_status'], 'header_unparsed')
+        self.assertIn('Python', job['tech_stack'])
+        flow = Workflow(':memory:', profile=profile(), resume=RESUME)
+        self.addCleanup(flow.close)
+        row = flow.import_text(text)
+        self.assertEqual(row['raw_jd'], text)
+        self.assertEqual(row['decision']['category'], 'review')
+        self.assertFalse(row['decision']['recommend'])
+        self.assertIsNone(row['decision']['score'])
+        self.assertTrue(any('未按技术匹配' in reason for reason in row['decision']['reasons']))
+        self.assertFalse(any('技术栈' in reason and '匹配' in reason for reason in row['decision']['reasons']))
+        self.assertTrue(any('不是原文缺少' in warning for warning in row['decision']['warnings']))
 
 
 if __name__ == '__main__':
