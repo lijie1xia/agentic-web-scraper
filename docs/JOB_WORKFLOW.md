@@ -46,7 +46,7 @@
 
 ## 画像与材料
 
-默认读取 `data/skill_profile.json` 和 `data/resume_highlights.json`；可用 `--profile`、`--resume` 指定其他 JSON 文件。默认生成短招呼语；`--channel email` 改为邮件开场白。
+默认读取 `data/skill_profile.json` 和 `data/resume_highlights.json`；可用 `--profile`、`--resume` 指定其他 JSON 文件。`skill_profile.json` 含个人偏好，不提交。仓库提供 `data/skill_profile.demo.json`。本机已有个人文件时继续用它；没有该文件时用示例。默认生成短招呼语；`--channel email` 改为邮件开场白。
 
 材料只选用已有简历事实中的匹配项目，不改写简历事实。页面的简历版本字段不代表已经选择、附加或上传了 PDF。
 

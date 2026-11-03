@@ -13,6 +13,9 @@ env/
 logs/
 output/
 
+# 个人求职画像（薪资、城市等）；示例是 data/skill_profile.demo.json
+data/skill_profile.json
+
 .idea/
 .vscode/
 

@@ -52,6 +52,15 @@ DEFAULT_SKILL_PROFILE: Dict[str, Any] = {
 }
 
 
+def default_skill_profile_path() -> Path:
+    """个人画像优先。未放置 data/skill_profile.json 时使用可提交的示例画像。"""
+    data_dir = Path(__file__).resolve().parents[2] / "data"
+    personal = data_dir / "skill_profile.json"
+    if personal.is_file():
+        return personal
+    return data_dir / "skill_profile.demo.json"
+
+
 def load_skill_profile(path: Union[str, Path, None] = None) -> Dict[str, Any]:
     """加载 skill profile。
 
@@ -69,5 +78,6 @@ def load_skill_profile(path: Union[str, Path, None] = None) -> Dict[str, Any]:
 
 __all__ = [
     "DEFAULT_SKILL_PROFILE",
+    "default_skill_profile_path",
     "load_skill_profile",
 ]

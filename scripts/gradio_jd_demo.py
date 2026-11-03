@@ -11,13 +11,13 @@ from scraper_framework.job_agent.decision import score
 from scraper_framework.job_agent.extract import extract_jd_from_text
 from scraper_framework.job_agent.generate import generate_greeting
 from scraper_framework.job_agent.resume_highlights import load_resume_highlights
-from scraper_framework.job_agent.skill_profile import load_skill_profile
+from scraper_framework.job_agent.skill_profile import default_skill_profile_path, load_skill_profile
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-_PROFILE_PATH = ROOT / "data" / "skill_profile.json"
+_PROFILE_PATH = default_skill_profile_path()
 _RESUME_PATH = ROOT / "data" / "resume_highlights.json"
 
 _PROFILE = load_skill_profile(_PROFILE_PATH if _PROFILE_PATH.exists() else None)

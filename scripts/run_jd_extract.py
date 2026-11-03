@@ -24,7 +24,7 @@ from scraper_framework.job_agent.decision import score_jobs
 from scraper_framework.job_agent.extract import load_urls
 from scraper_framework.job_agent.generate import generate_greetings
 from scraper_framework.job_agent.resume_highlights import load_resume_highlights
-from scraper_framework.job_agent.skill_profile import load_skill_profile
+from scraper_framework.job_agent.skill_profile import default_skill_profile_path, load_skill_profile
 
 
 def main():
@@ -51,8 +51,8 @@ def main():
     scored_path = scored_dir / f"jd_scored_{stamp}.json"
     greeted_path = greeted_dir / f"jd_greeted_{stamp}.json"
 
-    profile_path = ROOT / "data" / "skill_profile.json"
-    profile = load_skill_profile(profile_path if profile_path.exists() else None)
+    profile_path = default_skill_profile_path()
+    profile = load_skill_profile(profile_path if profile_path.is_file() else None)
     resume_path = ROOT / "data" / "resume_highlights.json"
     resume = load_resume_highlights(resume_path if resume_path.exists() else None)
 

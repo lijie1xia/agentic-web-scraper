@@ -93,7 +93,7 @@ EXPERIENCE_WITH_FRESH = """Java开发工程师（Agent应用）
 
 
 def profile():
-    return json.loads((ROOT / 'data/skill_profile.json').read_text(encoding='utf-8'))
+    return json.loads((ROOT / 'data/skill_profile.demo.json').read_text(encoding='utf-8'))
 
 
 class HeaderExtractionTests(unittest.TestCase):
@@ -195,7 +195,11 @@ class SampleDecisionTests(unittest.TestCase):
         self.assertLess(ordered.index(intern['id']), ordered.index(full['id']))
 
     def test_zhejiang_city_counts_as_province_tier(self):
-        row = self.flow.import_text(AGENT_INTERN.replace('深圳 5天', '杭州 5天'))
+        candidate = profile()
+        candidate['personal_preferences']['location']['preferred_tiers'][1].append('浙江')
+        flow = Workflow(':memory:', profile=candidate, resume=RESUME)
+        self.addCleanup(flow.close)
+        row = flow.import_text(AGENT_INTERN.replace('深圳 5天', '杭州 5天'))
         self.assertEqual(row['decision']['location_priority'], 1)
 
 

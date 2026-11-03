@@ -9,6 +9,7 @@ from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 from ..job_agent.decision import score
+from ..job_agent.skill_profile import default_skill_profile_path
 from .materials import build_material, validate_material
 from .offline import extract_text, split_postings
 from .repository import Repository
@@ -47,7 +48,9 @@ class Workflow:
     def __init__(self, db_path, *, profile=None, resume=None, channel='chat'):
         if channel not in {'chat', 'email'}:
             raise ValueError('channel 必须是 chat 或 email')
-        self.profile = copy.deepcopy(profile) if profile is not None else json.loads((ROOT/'data/skill_profile.json').read_text(encoding='utf-8-sig'))
+        if profile is None:
+            profile = json.loads(default_skill_profile_path().read_text(encoding='utf-8-sig'))
+        self.profile = copy.deepcopy(profile)
         self.resume = copy.deepcopy(resume) if resume is not None else json.loads((ROOT/'data/resume_highlights.json').read_text(encoding='utf-8-sig'))
         if not isinstance(self.profile, dict) or not isinstance(self.resume, dict):
             raise ValueError('求职画像与简历事实必须是 JSON 对象')

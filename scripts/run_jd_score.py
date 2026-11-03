@@ -16,7 +16,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from scraper_framework.job_agent.decision import score_jobs
-from scraper_framework.job_agent.skill_profile import load_skill_profile
+from scraper_framework.job_agent.skill_profile import default_skill_profile_path, load_skill_profile
 
 
 def main():
@@ -25,7 +25,7 @@ def main():
     parser.add_argument(
         "--profile",
         default=None,
-        help="skill_profile JSON 路径；默认用 data/skill_profile.json 或内置默认画像",
+        help="skill_profile JSON 路径；默认用个人画像，没有则用 data/skill_profile.demo.json",
     )
     parser.add_argument(
         "--no-sort",
@@ -53,8 +53,8 @@ def main():
     if args.profile:
         profile = load_skill_profile(args.profile)
     else:
-        default_path = ROOT / "data" / "skill_profile.json"
-        profile = load_skill_profile(default_path if default_path.exists() else None)
+        default_path = default_skill_profile_path()
+        profile = load_skill_profile(default_path if default_path.is_file() else None)
 
     scored = score_jobs(jobs, profile, sort_by_score=not args.no_sort)
 

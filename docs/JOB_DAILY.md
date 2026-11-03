@@ -44,12 +44,12 @@
   "notification": {
     "enabled": true,
     "target": "weixin",
-    "command": ["C:/Users/eic/AppData/Local/hermes/hermes-agent/venv/Scripts/hermes.exe"]
+    "command": ["hermes"]
   }
 }
 ```
 
-这是合并进原配置的片段，不是完整来源配置。示例路径为本机原生 Windows 可执行文件，其他机器须替换为已验证的路径。`command` 是非空字符串列表，可包含可执行文件及固定参数；不要填整条 shell 命令。默认示例的 `["hermes"]` 依赖 PATH，Windows 计划任务建议使用原生 `.exe` 的绝对路径，不使用无扩展名的 shell 启动脚本。只接受布尔值 `enabled`，不是字符串 `"true"` 或数字 `1`；启用时 `target` 必须为 `weixin`。
+这是合并进原配置的片段，不是完整来源配置。`command` 是非空字符串列表，可包含可执行文件及固定参数；不要填整条 shell 命令。上面的 `["hermes"]` 依赖 PATH。Windows 计划任务建议改成你本机已验证的 `hermes.exe` 绝对路径，写在不提交的 `output/job_workflow/sources.local.json` 里，不使用无扩展名的 shell 启动脚本。只接受布尔值 `enabled`，不是字符串 `"true"` 或数字 `1`；启用时 `target` 必须为 `weixin`。
 
 发送和状态语义：
 
