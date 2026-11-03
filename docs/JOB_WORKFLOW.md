@@ -13,7 +13,7 @@
 
 浏览器打开 `http://127.0.0.1:8765`。演示文件包含虚构岗位，不可用于真实投递；使用自己的 JD 时换一个数据库路径。
 
-1. 展开“加入岗位”，粘贴 JD；也可导入原项目的抽取或评分 JSON。
+1. 展开“加入岗位”，粘贴 JD；从招聘 App 复制的多条 JD 可一次粘贴，按职位标题和薪资头部自动拆分，单条失败不影响其余条目。也可导入原项目的抽取或评分 JSON。
 2. 查看“优先考虑 / 需要核实 / 明确不符合”、判断理由和实际文案。复杂或缺失条件需要人工核实，分数不是录用概率。
 3. 修改文案，勾选已核实事实，选择岗位后批量批准。
 4. 复制文案，在招聘渠道中人工发送；确认发送记录后填写依据并登记。
@@ -31,6 +31,9 @@
 
 # 从 UTF-8 文本导入 JD；链接只保存，不会自动打开
 .venv/Scripts/python.exe scripts/run_job_workflow.py paste path/to/jd.txt --url https://example.com/jobs/123
+
+# 从 JSONL 收件箱增量导入（例如微信收件箱插件写入的文件）
+.venv/Scripts/python.exe scripts/run_job_workflow.py import-inbox path/to/inbox.jsonl
 
 # 查看进度摘要
 .venv/Scripts/python.exe scripts/run_job_workflow.py report
@@ -66,7 +69,7 @@ Greenhouse 完整快照只有在整批读取、导入均成功后，才将先前
 
 来源明确提供的 `deadline` 使用 ISO 日期（`YYYY-MM-DD`）；按本机日期判断，截止日当天仍可审核。过期后审核页和日报提示原因，审批及人工交接入口均拒绝，不把历史申请记录改成关闭。没有明确截止日期的岗位不会凭空推断过期。
 
-`cycle` 仍是单次运行命令。港中大深圳局部公开来源、每日脚本及本机 Windows 计划任务见 [JOB_DAILY.md](JOB_DAILY.md)。手机访问和通知推送尚未接入。
+`cycle` 仍是单次运行命令。港中大深圳局部公开来源、每日脚本、Windows 计划任务、可选微信摘要通知和微信收件箱见 [JOB_DAILY.md](JOB_DAILY.md)。审核台仍只在本机访问。
 
 ## 状态与数据
 

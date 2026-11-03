@@ -1,9 +1,6 @@
 # Local development environment
 
-The imported virtual environment referenced an interpreter on another device. It
-was preserved outside the repository at
-`D:\ProgramProject\scraper_framework-venv-imported-backup`.
-The active environment is `.venv`, using Windows CPython 3.13.15.
+The reference environment is `.venv`, using Windows CPython 3.13.15.
 
 ## Rebuild on Windows
 
@@ -19,9 +16,8 @@ Do not copy `.venv` between devices. Select `.venv/Scripts/python.exe` as the
 interpreter in your editor. The lock captures the installed Windows environment,
 not a guarantee of compatibility on other operating systems.
 
-`requirements.txt` has not been rewritten. Direct dependency versions already
-present in the imported environment were preserved where available; Gradio was
-added from the manifest. The lock also pins resolved transitive dependencies.
+`requirements.txt` lists direct dependencies; the lock also pins resolved
+transitive dependencies.
 
 ## Known dependency metadata conflict
 
@@ -39,8 +35,7 @@ to silence it; isolate these stacks or revisit upstream requirements separately.
 - Crawl4AI converted local HTML to Markdown.
 - `tests/test_decision.py`: 13/13 passed.
 - `tests/test_generate.py`: 7/7 passed (mocked LLM).
-- `tests/test_doc_agent.py`: 10 passed, 1 pre-existing failure in
-  `test_is_final_output`; the user's modified DocAgent file was not overwritten.
+- `tests/test_doc_agent.py`: 10 passed, 1 known failure in `test_is_final_output`.
 
 No live model request, recruitment login, or application submission is needed for
 these checks. `.env`, credentials and browser sessions are not versioned.

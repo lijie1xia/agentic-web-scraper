@@ -67,7 +67,7 @@
 
 ## Windows 定时运行
 
-本机任务名：`ScraperFramework-JobDaily`，每天本机时间 **09:00（当前 UTC+8）**。
+示例任务名：`ScraperFramework-JobDaily`，每天本机时间 **09:00**。
 
 - 使用项目 `.venv/Scripts/python.exe`，运行 `scripts/run_job_daily.py` 和本地配置。
 - 使用当前用户交互登录身份，不保存密码、不提升权限。
@@ -82,7 +82,17 @@ Get-ScheduledTask -TaskName 'ScraperFramework-JobDaily'
 Get-ScheduledTaskInfo -TaskName 'ScraperFramework-JobDaily'
 ```
 
-Hermes 的 `no_agent` 调度也可直接运行这种脚本，但当前定时入口仍为 Windows 计划任务；无需再建第二个每日任务。个人微信配对已验证，用户已收到独立测试消息；是否推送每日摘要仍由本机 `notification.enabled` 决定。脚本通过 `hermes send` 直接发送，不依赖 LLM 调度。
+Hermes 的 `no_agent` 调度也可直接运行这种脚本，但推荐只保留一个定时入口，避免重复运行。是否推送每日摘要由本机 `notification.enabled` 决定；脚本通过 `hermes send` 直接发送，不依赖 LLM 调度。
+
+## 可选微信收件箱（不调用模型）
+
+`integrations/hermes_job_inbox` 是一个 Hermes 网关插件：把白名单用户发来的**微信私聊文本**逐条追加到本地 JSONL，并跳过 Hermes 的模型处理；群聊、非白名单用户、图片、分享卡片等其他消息原样交回 Hermes。
+
+1. 将该目录复制到 Hermes 插件目录，并加入 `plugins.enabled`。
+2. 为 Hermes 进程设置环境变量 `JOB_INBOX_PATH`（JSONL 路径）和 `JOB_INBOX_USERS`（逗号分隔的用户 ID 白名单）；任一为空时插件不生效。
+3. 在本机 `sources.local.json` 中加入 `"inbox": "<JSONL 路径>"`。每日任务会先执行 `import-inbox` 增量导入，再生成摘要；收件箱导入失败作为来源异常写进摘要，不阻塞其他来源。
+
+一条消息里可以粘贴多条从招聘 App 复制的 JD，导入时按头部拆分。插件不回复消息，也不代表岗位已被评估为合适，仍需在审核台确认。
 
 ## 来源核验记录
 
