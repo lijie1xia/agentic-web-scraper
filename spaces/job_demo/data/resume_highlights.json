@@ -1,0 +1,90 @@
+{
+  "projects": [
+    {
+      "name": "启德教育-海外院校数据采集迁移",
+      "one_liner": "在启德实习期间，参与把海外院校数据采集从 LLM/Agent 方案迁移到 XPath 确定性解析，负责验证与落地",
+      "outcome": "覆盖 23 所院校、7 国、1500+ 专业，核心字段完整率约 98%；单校处理周期从 5 天缩短到 2 天，字段一次性通过率约 90%",
+      "tags": ["Python", "Agent", "AI Agent", "MCP", "XPath", "Prompt Engineering", "Function Calling"]
+    },
+    {
+      "name": "启德教育-PDF表格规则化解析",
+      "one_liner": "针对 LLM 解析非标准 PDF 表格易出错的问题，改用规则化读取替代大模型解析",
+      "outcome": "处理率从约 10% 提升到 99%，单次解析耗时从 15 分钟以上降到 5 秒以内",
+      "tags": ["Python", "PDF", "pdfplumber", "性能优化"]
+    },
+    {
+      "name": "启德教育-采集异常与反爬处理",
+      "one_liner": "开发多层 Cookie 弹窗处理工具，并梳理 WAF 与人机验证的识别和处理流程",
+      "outcome": "减少页面异常污染采集结果，沉淀可复用排障方法，支撑团队周更 10 所院校的交付目标",
+      "tags": ["反爬", "WAF", "DrissionPage", "DOM", "工程鲁棒性"]
+    },
+    {
+      "name": "企业级多智能体编排平台",
+      "one_liner": "参与 Spring Boot 多 Agent 协作平台后端，负责 Planner/Router/Executor 分层调度与事件驱动相关开发",
+      "outcome": "修复 RxJava 流式响应并发问题，重构 Quartz 任务调度解决极端场景下线程池枯竭",
+      "tags": ["Java", "Spring Boot", "Agent", "Agent架构", "Docker", "RxJava", "SSE"]
+    },
+    {
+      "name": "RAG垂直领域问答后端",
+      "one_liner": "搭建从爬虫抓取、文本清洗分块到向量检索的 RAG 全流程后端服务",
+      "outcome": "完成 Flask 接入大模型到 Docker/Nginx 部署的全链路，支撑孕产场景基本问答",
+      "tags": ["Python", "RAG", "Flask", "Docker", "LangChain", "向量检索", "Hugging Face"]
+    },
+    {
+      "name": "求职情报Agent",
+      "one_liner": "个人项目：设计 extract-decide-generate 三段式 Agent 流水线，做 JD 结构化抽取与岗位匹配评分",
+      "outcome": "用固定 Schema 约束 LLM 输出，基于真实 JD 完成首轮抽取验证，并生成个性化邮件开场白",
+      "tags": ["Agent", "Python", "Prompt Engineering", "schema", "Function Calling"]
+    }
+  ],
+  "skills": [
+    "Python",
+    "LangGraph",
+    "Prompt Engineering",
+    "DrissionPage",
+    "多模态",
+    "向量检索",
+    "Python",
+    "Java",
+    "Go",
+    "Docker",
+    "Nginx",
+    "Git",
+    "Postman",
+    "Linux",
+    "MySQL",
+    "Flask",
+    "Spring Boot",
+    "RESTful API",
+    "Playwright",
+    "LangChain",
+    "RAG",
+    "Skills",
+    "Agent",
+    "MCP",
+    "Prompt Engineering",
+    "Function Calling",
+    "DrissionPage",
+    "XPath",
+    "pdfplumber",
+    "RESTful API",
+    "MyBatis",
+    "JPA",
+    "RxJava",
+    "SSE",
+    "Hugging Face",
+    "向量检索",
+    "反爬",
+    "Schema约束",
+    "Dify",
+    "AI Coding",
+    "Cursor",
+    "Windsurf",
+    "gpt",
+    "Claude",
+    "Kimi",
+    "Gemini",
+    "Qwen"
+  ],
+  "background": "广州华立学院区块链工程本科在读(2027届)，启德教育数据采集实习(AI辅助爬虫与流程优化)，专业排名前5%，华为云计算HCIP，通过CET-6，意向AI应用/工程研发实习"
+}

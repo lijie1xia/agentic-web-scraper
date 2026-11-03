@@ -1,0 +1,37 @@
+{
+  "tech_stack": [
+    "Python",
+    "Java",
+    "Spring Boot",
+    "Flask",
+    "Docker",
+    "Nginx",
+    "Git",
+    "Linux",
+    "MySQL",
+    "Redis",
+    "LangChain",
+    "RAG",
+    "Agent",
+    "AI Agent",
+    "MCP",
+    "Prompt Engineering",
+    "Function Calling",
+    "DrissionPage",
+    "XPath",
+    "pdfplumber",
+    "RESTful API",
+    "RxJava",
+    "SSE",
+    "Hugging Face",
+    "向量检索"
+  ],
+  "education": "本科在读",
+  "graduate_year": 2027,
+  "experience_years": 0,
+  "preferred_work_mode": ["remote", "hybrid", "onsite"],
+  "deal_breakers": {
+    "min_education": "本科",
+    "max_experience_required": 1
+  }
+}

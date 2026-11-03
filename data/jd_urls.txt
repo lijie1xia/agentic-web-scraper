@@ -4,29 +4,3 @@
 # 示例:
 # https://careers.example.com/jobs/123
 # https://boards.greenhouse.io/example/jobs/456
-
-https://jobs.bytedance.com/campus/position/7616306669668010293/detail?recomId=f055a7dd-27ff-11f1-9ed4-fa163e47e78a&sourceJobId=7532805635555248392&spread=B3RU5SF
-
-https://jobs.bytedance.com/campus/position/7634110168825006341/detail?recomId=07ed5f30-56c4-11f1-a9a0-1c34da70eb4e&sourceJobId=7561337145907038525
-
-https://jobs.bytedance.com/campus/position/7615512580086483205/detail?recomId=9ffcf7e6-8a5e-11f1-9675-ee88078f79b4&sourceJobId=7579201206179744053
-
-https://jobs.bytedance.com/campus/position/7595096815294695685/detail?recomId=b890aa9e-8a5e-11f1-9675-ee88078f79b4&sourceJobId=7615512580086483205
-
-https://jobs.siemens.com/es_ES/externaljobs/JobDetail/514602
-
-https://nio.jobs.feishu.cn/index/position/7249585265663641912/detail
-
-https://www.microsoft.com/en-us/research/opportunity/ai-operations-intern/
-
-https://join.qq.com/post_detail.html?postid=1231428449378641920
-
-https://join.qq.com/post_detail.html?postid=1216462959547938818
-
-https://jobs.bytedance.com/campus/position/7644148236995922229/detail?recomId=f734d0af-5f1e-11f1-a6aa-fa163e405c5e&sourceJobId=7637457056367298869
-
-https://vrfi1sk8a0.jobs.feishu.cn/379481/position/7535804843156736299/detail
-
-https://zhaopin.meituan.com/web/position/detail?jobUnionId=4643218943&highlightType=campus
-
-https://www.applysquare.com/opportunity-cn/o9y2Q9kNv59jGH/

@@ -18,7 +18,9 @@ data/skill_profile.json
 
 .idea/
 .vscode/
+.cursor/
 
 *.egg-info/
 dist/
 build/
+space_build/
