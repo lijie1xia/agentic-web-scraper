@@ -101,6 +101,8 @@ Hermes 的 `no_agent` 调度也可直接运行这种脚本，但推荐只保留�
 - [岗位列表](https://career.cuhk.edu.cn/en/job/search)：两次返回 200，研究时列表内容一致；只验证了前两页，不能据此宣称全站稳定。
 - [深圳锐圳 AI 工作流实习生](https://career.cuhk.edu.cn/en/job/view/id/468767)：真实详情返回 200，明确深圳、实习、截止 2026-12-31，正文包含 Python/Agent 等要求。
 - 首次完整本机运行导入五条线索，包含上述实习、广州后端开发、综合校招和生物科技招聘信息；均为待核实，不是五条合格推荐。
+- Lever 公开看板接口（`https://api.lever.co/v0/postings/<site>?mode=json`）本机返回 200 且结构完整，已接入 `--lever`；
+  它没有总数可核对，只用于发现岗位，不参与下架判断。
 - Dify 招聘子域本机返回 403、ASML 搜索线索返回 404，未纳入每日来源。
 
 截止日期按本机日期判断，过期即暂停审批及人工交接。Greenhouse 的完整来源缺失规则见 [JOB_WORKFLOW.md](JOB_WORKFLOW.md)；不能套用到这里的局部列表。

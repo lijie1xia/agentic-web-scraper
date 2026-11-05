@@ -4,6 +4,7 @@
   "notice_state": "output/job_workflow/public_last_notice.txt",
   "inputs": [],
   "boards": [],
+  "lever": [],
   "allow_network": false,
   "notification": {
     "enabled": false,

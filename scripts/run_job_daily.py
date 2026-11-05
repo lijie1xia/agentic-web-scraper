@@ -37,7 +37,8 @@ def main(argv=None):
         inputs, boards = config.get('inputs', []), config.get('boards', [])
         campus = config.get('campus', {})
         inbox = config.get('inbox')
-        if not inputs and not boards and campus.get('enabled') is not True and not inbox:
+        lever = config.get('lever', [])
+        if not inputs and not boards and not lever and campus.get('enabled') is not True and not inbox:
             raise ValueError('请至少配置一个已核验的岗位来源')
         report = resolve_path(config.get('report', 'output/job_workflow/daily.txt'))
         state = resolve_path(config.get('notice_state', 'output/job_workflow/last_notice.txt'))
@@ -51,6 +52,8 @@ def main(argv=None):
             command.extend(['--input', str(resolve_path(path))])
         for board in boards:
             command.extend(['--board', board])
+        for site in lever:
+            command.extend(['--lever', site])
         if campus.get('enabled') is True:
             command.extend(['--campus', '--campus-pages', str(campus.get('pages', 1)), '--campus-limit', str(campus.get('max_jobs', 8))])
             for url in campus.get('known_urls', []):

@@ -57,13 +57,15 @@
 
 ## 公开岗位来源
 
-已提供指定公司 Greenhouse 招聘板的公开 GET 适配器，必须显式允许联网：
+已提供指定公司 Greenhouse 招聘板与 Lever 公开看板的 GET 适配器，必须显式允许联网：
 
 ```text
 .venv/Scripts/python.exe scripts/run_job_workflow.py discover-greenhouse BOARD_TOKEN --allow-network
 ```
 
 将 `BOARD_TOKEN` 替换为已核实的公司招聘板标识。适配器限制官方 API 主机、拒绝重定向，不包含申请提交接口。没有配置公司名单，也没有接入 BOSS 或牛客的登录态发现和沟通。
+
+Lever 接口一次返回整个看板，但没有总数可核对，因此只记录读取结果，**不据此判定岗位下架**；需要下架判断时仍以 Greenhouse 的 `meta.total` 为准。
 
 Greenhouse 完整快照只有在整批读取、导入均成功后，才将先前存在但本轮缺席的岗位标记为“来源缺失”，撤销旧审批并暂停新的审批。失败、不完整响应和本地导入不会触发缺失判定；缺失也不等于确认关闭。岗位重新出现后可重新审核，不恢复旧审批，不覆盖已投递或面试记录。
 
