@@ -68,6 +68,8 @@ def _llm_extract_from_markdown(
     url: str,
     model_name: str,
     max_retries: int,
+    *,
+    api_key: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """纯 LLM 抽取（无工具），输入已是页面内容。"""
     content = markdown
@@ -76,7 +78,7 @@ def _llm_extract_from_markdown(
 
     agent = ChatAgent(
         _build_extract_prompt(),
-        model=get_model(model_name),
+        model=get_model(model_name, api_key=api_key),
         output_language="zh",
         step_timeout=60 * 5,
     )
@@ -173,10 +175,12 @@ def extract_jd_from_text(
     max_retries: int = 3,
     *,
     source_url: str = "paste://demo",
+    api_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     """从粘贴的 JD 文本抽取结构化字段（不打开浏览器）。用于适配Gradio做的演示demo
 
     复用与 extract_jd 相同的 LLM 抽取与 normalize；仅跳过页面抓取。
+    api_key 仅透传给本次调用，用于访客自带密钥的公开 Demo，不读写环境变量。
     """
     if not model:
         model = os.getenv("CRAWL_MODEL", "deepseek")
@@ -188,7 +192,8 @@ def extract_jd_from_text(
         return normalize_jd_result({"source_url": source_url, **empty_jd_fields()})
 
     print(f"  -> 粘贴文本长度={len(markdown)}")
-    extracted = _llm_extract_from_markdown(markdown, source_url, model, max_retries)
+    extracted = _llm_extract_from_markdown(
+        markdown, source_url, model, max_retries, api_key=api_key)
 
     result: Dict[str, Any] = {"source_url": source_url, **empty_jd_fields()}
     if isinstance(extracted, dict):

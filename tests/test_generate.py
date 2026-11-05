@@ -88,7 +88,7 @@ def test_generate_greeting_uses_llm_once():
 
     calls = []
 
-    def fake_llm(prompt, model):
+    def fake_llm(prompt, model, **kwargs):
         calls.append((prompt, model))
         return [
             {"style": "简洁直接版", "text": "a" * 140},
@@ -118,7 +118,7 @@ def test_generate_greetings_structure_and_no_mutate():
     ]
     original = copy.deepcopy(ranked)
 
-    def fake_llm(prompt, model):
+    def fake_llm(prompt, model, **kwargs):
         return [{"style": "简洁直接版", "text": "hello" * 30}]
 
     old = g._call_llm
