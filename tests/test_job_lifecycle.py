@@ -129,7 +129,7 @@ class LifecycleTests(unittest.TestCase):
         })
 
     def test_missing_and_returned_preserve_terminal_status_and_history(self):
-        for status in ('SUBMITTED', 'RESULT_UNKNOWN', 'EXECUTING', 'SKIPPED', 'CLOSED'):
+        for status in ('SUBMITTED', 'RESULT_UNKNOWN', 'EXECUTING', 'SKIPPED', 'WITHDREW'):
             with self.subTest(status=status):
                 source = 'board:' + status
                 jid = self.job(source=source)
@@ -142,8 +142,8 @@ class LifecycleTests(unittest.TestCase):
                     if status != 'EXECUTING':
                         result = 'unknown' if status == 'RESULT_UNKNOWN' else 'submitted'
                         self.repo.finish_execution(claim['id'], result=result, evidence='人工回执')
-                    if status == 'CLOSED':
-                        self.repo.set_followup(jid, status='closed')
+                    if status == 'WITHDREW':
+                        self.repo.set_followup(jid, status='withdrew', note='主动放弃')
                 job = self.repo.get_job(jid)
                 logs = self.repo.list_logs(jid)
                 approvals = self.repo.list_approvals(jid)

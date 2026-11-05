@@ -138,14 +138,14 @@ class RepositoryTests(unittest.TestCase):
             repo.approve(jid)
         repo.upsert_job(job, raw_jd='Changed JD', decision={'category': 'recommend'})
         self.assertEqual(repo.get_job(jid)['status'], 'SUBMITTED')
-        for status in ('replied', 'interview', 'closed'):
-            self.assertEqual(repo.set_followup(jid, status=status, note='Human update')['status'], status.upper())
+        for status, expected in (('replied', 'REPLIED'), ('interview', 'INTERVIEW'), ('closed', 'WITHDREW')):
+            self.assertEqual(repo.set_followup(jid, status=status, note='Human update')['status'], expected)
         for action in (lambda: repo.approve(jid), lambda: repo.skip(jid),
                        lambda: repo.save_material(jid, {'message': 'new'}),
                        lambda: repo.set_followup(jid, status='replied')):
             with self.assertRaises(ValueError):
                 action()
-        self.assertEqual(repo.get_job(jid)['status'], 'CLOSED')
+        self.assertEqual(repo.get_job(jid)['status'], 'WITHDREW')
         self.assertEqual(repo.list_logs(jid)[-1]['details']['note'], 'Human update')
     def test_decision_categories_match_scoring_api(self):
         repo = self.repository()
