@@ -1,5 +1,7 @@
 # Agentic Web Scraper
 
+[![tests](https://github.com/lijie1xia/agentic-web-scraper/actions/workflows/tests.yml/badge.svg)](https://github.com/lijie1xia/agentic-web-scraper/actions/workflows/tests.yml)
+
 基于 LLM Agent 的网页结构化采集框架，以及在它之上落地的一个**求职 Agent**：从 JD 抽取、匹配评分、开场白生成，到本地批量审核、每日岗位发现和微信摘要通知。
 
 项目分两层：
@@ -15,7 +17,7 @@
 - **可靠的增量来源**：Greenhouse 官方 API 只有在整批读取和导入都成功时才把缺席岗位标记为"来源缺失"，失败或不完整响应不会误判下架；截止日期过期后自动暂停审批。
 - **每日摘要与微信通知**：计划任务每天跑一次、全程不调用模型；摘要无变化不重复推送，通知只有在 CLI 明确返回成功后才推进状态，超时视为结果未知、不在本次运行内重试。
 - **微信收件箱插件**：Hermes 网关插件把白名单私聊里的 JD 文本写入本地 JSONL，再由每日任务增量导入，招聘 App 里复制的多条 JD 可一次粘贴、自动拆分。
-- **离线测试**：`tests/` 下的用例使用本地夹具、临时 SQLite 和 mock，不消耗模型额度、不登录招聘账号。
+- **离线测试与 CI**：`tests/` 下 204 项用例使用本地夹具、临时 SQLite 和 mock，不消耗模型额度、不登录招聘账号；GitHub Actions 只安装 Playwright 跑全套，不注入任何密钥。
 
 ## 架构
 
