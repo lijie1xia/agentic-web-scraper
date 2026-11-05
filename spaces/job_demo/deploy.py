@@ -27,6 +27,9 @@ _PKG_FILES = [
     "scraper_framework/tools/model_factory.py",
 ]
 
+# Demo 的免费路径用规则抽取，需要整个 job_workflow 包（导入 __init__ 会连带 repository）。
+_PKG_DIRS = ["scraper_framework/job_workflow"]
+
 
 def flatten(dest: Path) -> None:
     dest.mkdir(parents=True, exist_ok=True)
@@ -50,6 +53,11 @@ def flatten(dest: Path) -> None:
     job_dest.mkdir(parents=True, exist_ok=True)
     for path in job_src.glob("*.py"):
         shutil.copy2(path, job_dest / path.name)
+    for rel in _PKG_DIRS:
+        out_dir = dest / rel
+        out_dir.mkdir(parents=True, exist_ok=True)
+        for path in (ROOT / rel).glob("*.py"):
+            shutil.copy2(path, out_dir / path.name)
 
 
 def upload_hf() -> None:
@@ -76,13 +84,8 @@ def upload_hf() -> None:
             repo_id=repo_id,
             repo_type="space",
         )
-        key = os.getenv("DEEPSEEK_API_KEY")
-        if key:
-            api.add_space_secret(repo_id, "DEEPSEEK_API_KEY", key)
-            api.add_space_variable(repo_id, "CRAWL_MODEL", os.getenv("CRAWL_MODEL", "deepseek"))
-            print("configured DEEPSEEK_API_KEY secret")
-        else:
-            print("DEEPSEEK_API_KEY missing; add it in Space Settings → Secrets")
+        # 公开 Demo 默认只跑本地规则，不需要服务器密钥；实时生成由访客自带 Key。
+        print("未上传 DEEPSEEK_API_KEY：公开 Demo 默认零成本，访客在页面底部自填 Key。")
     finally:
         shutil.rmtree(staging, ignore_errors=True)
     print(f"https://huggingface.co/spaces/{repo_id}")

@@ -55,7 +55,7 @@ flowchart LR
 
 ## 求职 Agent Demo
 
-粘贴 JD → 抽取 → 评分 → 三版求职邮件开场白。打开即可看样例，不必先当用户。
+粘贴 JD → 抽取 → 评分 → 三版求职邮件开场白。默认只跑本地规则（抽取 + 评分），**不消耗任何额度**；需要按自己粘贴的 JD 实时生成开场白时，在页面底部填入访客自己的 DeepSeek Key。
 
 ![求职 Agent Demo](spaces/job_demo/preview.gif)
 
@@ -63,14 +63,14 @@ flowchart LR
 # 本地
 python spaces/job_demo/app.py
 
-# Hugging Face Spaces（需先 hf auth login；会读取 .env 里的 DEEPSEEK_API_KEY）
+# Hugging Face Spaces（需先 hf auth login；不读取任何服务器密钥）
 python spaces/job_demo/deploy.py
 
 # ModelScope 创空间：先在魔搭网页创建 Gradio 空间，再把导出目录推进该 git 仓库
 python spaces/job_demo/deploy.py --out ./space_build
 ```
 
-公开链接在登录对应平台并完成上面的命令后生成：
+公开链接在登录对应平台并完成上面的命令后生成，把下面的 `<username>` 换成实际用户名即可：
 
 - Hugging Face: `https://huggingface.co/spaces/<username>/job-agent-demo`
 - ModelScope: 创空间页面给出的 `https://www.modelscope.cn/studios/<username>/job-agent-demo`
