@@ -15,6 +15,7 @@ from .offline import extract_text, split_postings
 from .repository import Repository
 from .lifecycle import unavailable_reason
 from .preferences import calibrate, preference_sort_key
+from .recommend import exclusion_summary, select_daily
 
 ROOT = Path(__file__).resolve().parents[2]
 OPEN = {'READY_FOR_REVIEW', 'APPROVED'}
@@ -228,6 +229,18 @@ class Workflow:
         if any(row['source'] == 'cuhk' for row in rows):
             lines.append('港中大深圳来源为局部列表及指定详情监测，不覆盖全站；校外申请资格须另行核验。')
         lines.extend(f'{key}: {value}' for key, value in self.summary().items())
+        recommendations = select_daily(rows, limit=3)
+        lines.extend(['', '今日推荐（最多 3 条；推荐不等于投递授权）'])
+        if recommendations:
+            for item in recommendations:
+                row, job = item['row'], item['row']['job']
+                title = job.get('job_title') or '职位待核实'
+                place = job.get('location') or '地点未知'
+                lines.append(f"#{row['id']} {title} · {place} · {'；'.join(item['reasons'])}")
+        else:
+            blocked = exclusion_summary(rows)
+            detail = '、'.join(f'{reason} {count} 条' for reason, count in blocked.items())
+            lines.append(f'无符合硬门槛的岗位（{detail}）' if detail else '无符合硬门槛的岗位')
         grouped = {'priority': [], 'review': [], 'reject': []}
         for row in rows:
             grouped.setdefault(row['decision'].get('category') or 'review', []).append(row)
