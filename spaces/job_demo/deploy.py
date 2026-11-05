@@ -7,6 +7,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import contextlib
 import os
 import shutil
 import tempfile
@@ -18,6 +19,26 @@ os.environ["HF_ENDPOINT"] = "https://huggingface.co"
 ROOT = Path(__file__).resolve().parents[2]
 SPACE_DIR = Path(__file__).resolve().parent
 SPACE_ID_DEFAULT = "job-agent-demo"
+PROXY_ENV_KEYS = ("HTTP_PROXY", "HTTPS_PROXY", "ALL_PROXY", "http_proxy", "https_proxy", "all_proxy")
+
+
+@contextlib.contextmanager
+def proxy_environment(url: str | None):
+    """仅在显式传入代理时临时设置环境变量，结束后原样恢复；不写死任何地址。"""
+    if not url:
+        yield
+        return
+    saved = {key: os.environ.get(key) for key in PROXY_ENV_KEYS}
+    for key in PROXY_ENV_KEYS:
+        os.environ[key] = url
+    try:
+        yield
+    finally:
+        for key, value in saved.items():
+            if value is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = value
 
 _PKG_FILES = [
     "scraper_framework/__init__.py",
@@ -60,14 +81,17 @@ def flatten(dest: Path) -> None:
             shutil.copy2(path, out_dir / path.name)
 
 
-def upload_hf() -> None:
+def upload_hf(proxy: str | None = None) -> None:
     from dotenv import load_dotenv
     from huggingface_hub import HfApi, create_repo, whoami
 
     load_dotenv(ROOT / ".env")
-    user = whoami()["name"]
+    try:
+        user = whoami()["name"]
+    except Exception as exc:
+        raise SystemExit("未登录 Hugging Face：先执行 `hf auth login` 或设置 HF_TOKEN。") from exc
     repo_id = f"{user}/{os.getenv('HF_SPACE_NAME', SPACE_ID_DEFAULT)}"
-    print(f"deploying Space {repo_id}")
+    print(f"deploying Space {repo_id}（{'经代理' if proxy else '直连'}）")
     create_repo(
         repo_id,
         repo_type="space",
@@ -97,6 +121,11 @@ def main() -> None:
         "--out",
         help="只导出可部署目录（HF Space / ModelScope Studio 都能用），不上传",
     )
+    parser.add_argument(
+        "--proxy",
+        default=os.getenv("HF_PROXY"),
+        help="可选：上传时使用的 HTTP(S) 代理（也可用环境变量 HF_PROXY）；不填则直连",
+    )
     args = parser.parse_args()
     if args.out:
         dest = Path(args.out).resolve()
@@ -105,7 +134,8 @@ def main() -> None:
         flatten(dest)
         print(dest)
         return
-    upload_hf()
+    with proxy_environment(args.proxy):
+        upload_hf(proxy=args.proxy)
 
 
 if __name__ == "__main__":

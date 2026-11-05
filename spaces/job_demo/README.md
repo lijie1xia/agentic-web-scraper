@@ -37,6 +37,9 @@ Hugging Face Spaces（需先 `hf auth login`）：
 
 ```bash
 python spaces/job_demo/deploy.py
+
+# 网络不可直连时用代理；也可以设置 HF_PROXY，不写死在代码里
+python spaces/job_demo/deploy.py --proxy http://127.0.0.1:7890
 ```
 
 ModelScope 创空间：在魔搭创建 Gradio 创空间后，导出产物再推进该仓库：
