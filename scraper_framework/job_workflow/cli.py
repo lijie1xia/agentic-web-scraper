@@ -28,7 +28,7 @@ def import_inbox(flow, path):
             raise ValueError('收件进度文件损坏')
         state = loaded
     seen = {item for item in state['ids'] if isinstance(item, str)}
-    result = {'processed': [], 'errors': [], 'skipped': 0}
+    result = {'processed': [], 'errors': [], 'skipped': 0, 'ignored': 0}
     lines = path.read_text(encoding='utf-8-sig').splitlines() if path.exists() else None
     if lines is None:
         result['errors'].append('收件箱不存在')
@@ -48,6 +48,12 @@ def import_inbox(flow, path):
         if message_id in seen:
             result['skipped'] += 1
             continue
+        if not _looks_like_job(text):
+            # 微信里问好、回「1」这类短消息只是让会话保活，不能当岗位建档。
+            result['ignored'] += 1
+            seen.add(message_id)
+            state['ids'].append(message_id)
+            continue
         try:
             batch = flow.import_batch_text(text)
         except (ValueError, TypeError, KeyError) as exc:
@@ -61,6 +67,16 @@ def import_inbox(flow, path):
     state_path.write_text(json.dumps({'ids': state['ids']}, ensure_ascii=False), encoding='utf-8')
     result['unique_jobs'] = len(set(result['processed']))
     return result
+
+
+INBOX_SIGNALS = ('招聘', '岗位', '职位', '职责', '任职', '要求', '薪资', '实习', '全职', '兼职',
+                 'http', 'intern', 'job', 'remote')
+
+
+def _looks_like_job(text):
+    """够长或含岗位关键词才当 JD；短消息一律忽略。"""
+    stripped = text.strip()
+    return len(stripped) >= 40 or (len(stripped) >= 8 and any(word in stripped.lower() for word in INBOX_SIGNALS))
 
 
 def main(argv=None):

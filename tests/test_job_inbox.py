@@ -130,5 +130,21 @@ class InboxTests(unittest.TestCase):
             self.assertEqual(second.stdout, '')
 
 
+    def test_short_chat_messages_are_ignored_not_imported(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / 'inbox.jsonl'
+            path.write_text('\n'.join(json.dumps({'message_id': mid, 'text': text}, ensure_ascii=False)
+                                       for mid, text in (('m1', '1'), ('m2', '好的'), ('m3', '收到'))),
+                            encoding='utf-8')
+            flow = Workflow(':memory:')
+            self.addCleanup(flow.close)
+            result = import_inbox(flow, path)
+            self.assertEqual(result['processed'], [])
+            self.assertEqual(result['ignored'], 3)
+            self.assertEqual(result['errors'], [])
+            again = import_inbox(flow, path)
+            self.assertEqual(again['ignored'], 0)
+
+
 if __name__ == '__main__':
     unittest.main()
