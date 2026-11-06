@@ -8,6 +8,8 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 
 def resolve_path(value):
@@ -27,13 +29,19 @@ def main(argv=None):
         notification = config.get('notification', {'enabled': False})
         if not isinstance(notification, dict) or not isinstance(notification.get('enabled'), bool):
             raise ValueError('通知配置必须包含布尔值 enabled')
+        channel = notification.get('channel') or 'weixin'
         if notification['enabled']:
-            notify_command = notification.get('command')
-            if notification.get('target') != 'weixin':
-                raise ValueError('通知配置 target 仅支持 weixin')
-            if (not isinstance(notify_command, list) or not notify_command
-                    or any(not isinstance(part, str) or not part.strip() for part in notify_command)):
-                raise ValueError('通知配置 command 必须是非空字符串列表')
+            if channel not in ('weixin', 'email'):
+                raise ValueError('通知配置 channel 仅支持 weixin 或 email')
+            if channel == 'weixin':
+                notify_command = notification.get('command')
+                if notification.get('target') != 'weixin':
+                    raise ValueError('通知配置 target 仅支持 weixin')
+                if (not isinstance(notify_command, list) or not notify_command
+                        or any(not isinstance(part, str) or not part.strip() for part in notify_command)):
+                    raise ValueError('通知配置 command 必须是非空字符串列表')
+            elif not isinstance(notification.get('email'), dict):
+                raise ValueError('邮件通知需要 email 配置对象')
         inputs, boards = config.get('inputs', []), config.get('boards', [])
         campus = config.get('campus', {})
         inbox = config.get('inbox')
@@ -89,16 +97,20 @@ def main(argv=None):
             print(notice, end='', flush=True)
             # 先确认标准输出成功，再投递；不在本次运行中重试结果未知的发送。
             if notification['enabled']:
-                delivery = subprocess.run(
-                    notification['command'] + ['send', '--to', notification['target'], '--json'],
-                    cwd=ROOT, input=notice, capture_output=True, text=True,
-                    encoding='utf-8', timeout=30, shell=False,
-                )
-                if delivery.returncode != 0:
-                    raise RuntimeError(f'通知命令失败（退出码 {delivery.returncode}）')
-                accepted = json.loads(delivery.stdout)
-                if not isinstance(accepted, dict) or accepted.get('success') is not True:
-                    raise RuntimeError('通知未获 CLI 确认成功')
+                if channel == 'email':
+                    from scraper_framework.job_workflow.mailer import send as send_mail
+                    send_mail(notification['email'], notice)
+                else:
+                    delivery = subprocess.run(
+                        notification['command'] + ['send', '--to', notification['target'], '--json'],
+                        cwd=ROOT, input=notice, capture_output=True, text=True,
+                        encoding='utf-8', timeout=30, shell=False,
+                    )
+                    if delivery.returncode != 0:
+                        raise RuntimeError(f'通知命令失败（退出码 {delivery.returncode}）')
+                    accepted = json.loads(delivery.stdout)
+                    if not isinstance(accepted, dict) or accepted.get('success') is not True:
+                        raise RuntimeError('通知未获 CLI 确认成功')
             # 启用通知时，只有 CLI 确认接受投递后才能推进状态。
             state.parent.mkdir(parents=True, exist_ok=True)
             state.write_text(notice, encoding='utf-8')

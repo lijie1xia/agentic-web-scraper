@@ -35,9 +35,34 @@
 
 同一岗位重复出现不会重复建档；JD 或决策改变产生新版本。版本、状态、截止日提示或来源异常变化时输出摘要；无变化时 stdout 为空。已发送、回复、面试仍须人工登记，脚本不审批、不联系企业。
 
-## 可选个人微信通知（不调用 LLM）
+## 可选每日通知（不调用 LLM）
 
-默认不推送。省略 `notification` 或设置 `enabled: false` 时，只输出变化摘要并记录状态，不启动 Hermes。已有配置无需迁移。`allow_network` 只控制岗位来源抓取；微信推送由 `notification.enabled` 单独授权，启用后会通过 Hermes 联网发送给个人微信。
+默认不推送。省略 `notification` 或设置 `enabled: false` 时，只输出变化摘要并记录状态。`allow_network` 只控制岗位来源抓取，通知由 `notification.enabled` 单独授权。
+
+支持两个通道，用 `channel` 选择：
+
+- `channel: "email"`（推荐做定时主通道）：用 SMTP 直接发信，不依赖任何登录会话，凌晨也能发；授权码只从本机文件读取。
+- `channel: "weixin"`（缺省值，兼容旧配置）：经 Hermes 机器人发到个人微信。iLink 只允许在“用户最近给机器人发过消息”的会话窗口内主动发送，窗口失效后投递会失败；实测不到 24 小时就会失效，因此不适合无人值守的固定时间推送。
+
+邮件配置（写进不提交的 `output/job_workflow/sources.local.json`）：
+
+```json
+{
+  "notification": {
+    "enabled": true,
+    "channel": "email",
+    "email": {
+      "host": "smtp.163.com",
+      "port": 465,
+      "sender": "you@163.com",
+      "recipients": ["you@163.com"],
+      "auth_file": "output/job_workflow/smtp_auth.txt"
+    }
+  }
+}
+```
+
+授权码只写在本机文件里，不写进配置、不写进日志、不进仓库。录入方式是在自己的终端运行 `python scripts/set_job_mail_auth.py`，按提示粘贴 163 授权码（输入不回显，不需要经过聊天窗口）。
 
 先在 Hermes 中完成个人微信配对与接收目标配置，再由用户明确启用本机 `output/job_workflow/sources.local.json` 的以下字段；不要将账号凭据、token 或 cookie 写进岗位配置：
 
@@ -51,13 +76,13 @@
 }
 ```
 
-这是合并进原配置的片段，不是完整来源配置。`command` 是非空字符串列表，可包含可执行文件及固定参数；不要填整条 shell 命令。上面的 `["hermes"]` 依赖 PATH。Windows 计划任务建议改成你本机已验证的 `hermes.exe` 绝对路径，写在不提交的 `output/job_workflow/sources.local.json` 里，不使用无扩展名的 shell 启动脚本。只接受布尔值 `enabled`，不是字符串 `"true"` 或数字 `1`；启用时 `target` 必须为 `weixin`。
+微信通道的片段如下（合并进原配置，不是完整来源配置）。`command` 是非空字符串列表，可包含可执行文件及固定参数；不要填整条 shell 命令。上面的 `["hermes"]` 依赖 PATH。Windows 计划任务建议改成你本机已验证的 `hermes.exe` 绝对路径，写在不提交的 `output/job_workflow/sources.local.json` 里，不使用无扩展名的 shell 启动脚本。只接受布尔值 `enabled`，不是字符串 `"true"` 或数字 `1`；启用时 `target` 必须为 `weixin`。
 
 发送和状态语义：
 
 1. 摘要有变化时先输出到 stdout，并成功 flush；写入或 flush 失败则不发送、不更新 `notice_state`，返回非零。
-2. 启用通知后，仅执行一次 `command + ["send", "--to", "weixin", "--json"]`。摘要通过 UTF-8 标准输入传递，捕获输出，`shell=False`，通知子进程超时为 30 秒；不启动聊天代理、不调用模型、不提交岗位申请或联系企业。
-3. **stdout 输出成功不等于通知投递被接受。** 必须同时满足 CLI 退出码为 0、stdout 是 JSON 对象且 `success` 为布尔值 `true`，才更新 `notice_state`。这只是 CLI 确认投递被接受，不是手机已显示或用户已读的凭据；CLI JSON 不混入日报 stdout。
+2. 启用通知后只投递一次：邮件通道调用一次 SMTP 登录与发送；微信通道执行一次 `command + ["send", "--to", "weixin", "--json"]`。摘要通过 UTF-8 标准输入传递，捕获输出，`shell=False`，通知子进程超时为 30 秒；不启动聊天代理、不调用模型、不提交岗位申请或联系企业。
+3. **stdout 输出成功不等于通知投递被接受。** 必须等通道确认成功（邮件为 SMTP 返回成功，微信为 CLI 退出码 0、stdout 是 JSON 对象且 `success` 为布尔值 `true`），才更新 `notice_state`。这只是 CLI 确认投递被接受，不是手机已显示或用户已读的凭据；CLI JSON 不混入日报 stdout。
 4. 命令失败、启动失败、超时、JSON 损坏或未确认成功都返回非零，保留旧状态。本次不立即重试；下一次计划运行会再次尝试尚未记录成功的变化摘要。超时属于结果未知，消息可能已经发出，因此下次运行可能重复；发送成功后本地状态写入失败也可能重复。**不承诺绝对 exactly-once。**
 5. 摘要与 `notice_state` 相同则 stdout 为空且不发送。通知关闭时，状态只代表 stdout 已成功输出；从关闭切换到启用并不会自动补发相同摘要。如需把首次微信通知与历史 stdout 状态分开，可在本机配置选择新的 `notice_state` 路径，之后仍复用该路径。
 

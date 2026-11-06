@@ -290,9 +290,10 @@ raise SystemExit(int(sys.argv[3]))
     def test_committed_default_config_keeps_network_and_notifications_disabled(self):
         settings = json.loads((ROOT / 'config/job_sources.json').read_text(encoding='utf-8'))
         self.assertIs(settings['allow_network'], False)
-        self.assertEqual(settings.get('notification'), {
-            'enabled': False, 'target': 'weixin', 'command': ['hermes'],
-        })
+        notification = settings.get('notification') or {}
+        # 只约定“默认关闭”，不锁死通道字段的具体取值。
+        self.assertIs(notification.get('enabled'), False)
+        self.assertIn(notification.get('channel'), ('weixin', 'email'))
 
     def test_no_sources_is_configuration_error(self):
         self.settings['inputs'] = []
@@ -300,6 +301,26 @@ raise SystemExit(int(sys.argv[3]))
         self.assertNotEqual(result.returncode, 0)
         self.assertIn('来源', result.stderr)
         self.assertFalse((self.folder / 'notice.txt').exists())
+
+
+    def test_email_channel_requires_email_settings(self):
+        self.settings['notification'] = {'enabled': True, 'channel': 'email'}
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn('email', result.stderr)
+        self.assertFalse((self.folder / 'notice.txt').exists())
+
+    def test_email_channel_without_auth_file_keeps_state(self):
+        state = self.folder / 'notice.txt'
+        previous = '旧摘要\n'.encode('utf-8')
+        state.write_bytes(previous)
+        self.settings['notification'] = {'enabled': True, 'channel': 'email', 'email': {
+            'host': 'smtp.163.com', 'port': 465, 'sender': 'a@163.com',
+            'recipients': ['a@163.com'], 'auth_file': str(self.folder / 'missing.txt')}}
+        result = self.run_daily()
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn('set_job_mail_auth', result.stderr)
+        self.assertEqual(state.read_bytes(), previous)
 
 
 if __name__ == '__main__':

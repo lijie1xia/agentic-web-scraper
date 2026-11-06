@@ -8,8 +8,16 @@
   "allow_network": false,
   "notification": {
     "enabled": false,
+    "channel": "weixin",
     "target": "weixin",
-    "command": ["hermes"]
+    "command": ["hermes"],
+    "email": {
+      "host": "smtp.163.com",
+      "port": 465,
+      "sender": "you@163.com",
+      "recipients": ["you@163.com"],
+      "auth_file": "output/job_workflow/smtp_auth.txt"
+    }
   },
   "campus": {
     "enabled": true,
