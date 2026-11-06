@@ -9,7 +9,7 @@ on:
 
 jobs:
   offline-tests:
-    name: 离线测试（244 项，含真实 Chromium 冒烟）
+    name: 离线测试（249 项，含真实 Chromium 冒烟）
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
