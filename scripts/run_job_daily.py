@@ -99,7 +99,9 @@ def main(argv=None):
             if notification['enabled']:
                 if channel == 'email':
                     from scraper_framework.job_workflow.mailer import send as send_mail
-                    send_mail(notification['email'], notice)
+                    from scraper_framework.job_workflow.notify_text import to_plain
+                    # 邮件客户端不渲染 markdown，正文按纯文本排版发送。
+                    send_mail(notification['email'], to_plain(notice))
                 else:
                     delivery = subprocess.run(
                         notification['command'] + ['send', '--to', notification['target'], '--json'],
