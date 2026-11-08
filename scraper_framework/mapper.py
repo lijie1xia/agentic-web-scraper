@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Union
 from camel.agents import ChatAgent
 
 from .tools.model_factory import get_model, enable_no_proxy_for_aliyun, NO_PROXY_TARGETS
-from .agents.llm_agent.llm_scraper import extract_json
+from .tools.json_extract import extract_json
 from .logger import get_spider_logger
 
 logger = get_spider_logger(__name__)

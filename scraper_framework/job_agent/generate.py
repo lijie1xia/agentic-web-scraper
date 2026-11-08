@@ -169,7 +169,7 @@ def _call_llm(prompt: str, model: str, *, api_key: Optional[str] = None) -> Any:
     """单次 LLM 调用并解析 JSON。camel 依赖延迟导入，便于纯规则测试。"""
     from camel.agents import ChatAgent
 
-    from ..agents.llm_agent.llm_scraper import extract_json
+    from ..tools.json_extract import extract_json
     from ..tools.model_factory import (
         NO_PROXY_TARGETS,
         enable_no_proxy_for_aliyun,

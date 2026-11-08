@@ -126,7 +126,7 @@ def extract_with_vl_model(images: List, pdf_crawl_field: Dict[str, str]) -> Opti
     result = response.choices[0].message.content
     logger.debug(f"VL model response: {result[:200]}...")
 
-    from ..agents.llm_agent.llm_scraper import extract_json
+    from ..tools.json_extract import extract_json
     return extract_json(result)
 
 

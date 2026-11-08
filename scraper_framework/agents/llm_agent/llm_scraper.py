@@ -3,7 +3,6 @@
 这是最基础的 LLM 爬取模式：用户提供 URL，Agent 自动爬取页面并提取结构化数据。
 """
 
-import json
 import logging
 import os
 import time
@@ -14,6 +13,7 @@ from camel.toolkits import FunctionTool
 from DrissionPage import Chromium
 from DrissionPage.items import MixTab
 
+from ...tools.json_extract import extract_json
 from ...tools.model_factory import get_model, enable_no_proxy_for_aliyun, NO_PROXY_TARGETS
 from ...tools.page_fetcher import fetch_page_as_markdown_sync
 from ...logger import get_spider_logger
@@ -22,33 +22,6 @@ logger = get_spider_logger(__name__)
 logging.getLogger("camel").setLevel(logging.WARNING)
 logging.getLogger("crawl4ai").setLevel(logging.WARNING)
 logging.getLogger("httpx").setLevel(logging.WARNING)
-
-
-def extract_json(text: str) -> Optional[Any]:
-    """从文本中提取 JSON 对象或数组"""
-    if not isinstance(text, str):
-        return None
-    text = text.strip()
-    if not text:
-        return None
-
-    array_start = text.find("[")
-    array_end = text.rfind("]")
-    if array_start != -1 and array_end > array_start:
-        try:
-            return json.loads(text[array_start : array_end + 1])
-        except json.JSONDecodeError:
-            pass
-
-    obj_start = text.find("{")
-    obj_end = text.rfind("}")
-    if obj_start != -1 and obj_end > obj_start:
-        try:
-            return json.loads(text[obj_start : obj_end + 1])
-        except json.JSONDecodeError:
-            pass
-
-    return None
 
 
 class LLMAgentScraper:
