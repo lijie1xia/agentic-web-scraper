@@ -15,9 +15,17 @@ from .offline import extract_text, split_postings
 from .repository import Repository
 from .lifecycle import unavailable_reason
 from .preferences import calibrate, preference_sort_key
+from .recommend import exclusion_summary, select_daily
 
 ROOT = Path(__file__).resolve().parents[2]
 OPEN = {'READY_FOR_REVIEW', 'APPROVED'}
+
+# 天数分档只改一次文案：同一档内报告内容不变，不会每天触发重复推送。
+_FOLLOWUP_REMINDERS = (
+    (14, '已投14天以上，无回音可把状态改为“长期无回音”归档'),
+    (7, '已投7天以上，建议查一次回复并准备备选'),
+    (3, '已投3天以上，可去招聘 App 查一次回复'),
+)
 
 
 def _digest(value):
@@ -221,6 +229,18 @@ class Workflow:
         if any(row['source'] == 'cuhk' for row in rows):
             lines.append('港中大深圳来源为局部列表及指定详情监测，不覆盖全站；校外申请资格须另行核验。')
         lines.extend(f'{key}: {value}' for key, value in self.summary().items())
+        recommendations = select_daily(rows, limit=3)
+        lines.extend(['', '今日推荐（最多 3 条；推荐不等于投递授权）'])
+        if recommendations:
+            for item in recommendations:
+                row, job = item['row'], item['row']['job']
+                title = job.get('job_title') or '职位待核实'
+                place = job.get('location') or '地点未知'
+                lines.append(f"#{row['id']} {title} · {place} · {'；'.join(item['reasons'])}")
+        else:
+            blocked = exclusion_summary(rows)
+            detail = '、'.join(f'{reason} {count} 条' for reason, count in blocked.items())
+            lines.append(f'无符合硬门槛的岗位（{detail}）' if detail else '无符合硬门槛的岗位')
         grouped = {'priority': [], 'review': [], 'reject': []}
         for row in rows:
             grouped.setdefault(row['decision'].get('category') or 'review', []).append(row)
@@ -243,12 +263,23 @@ class Workflow:
         lines.extend(['', f"明确不符合：{len(grouped['reject'])} 条"])
         return _fit_notice('\n'.join(lines).strip() + '\n')
 
-    @staticmethod
-    def _report_heading(row):
+    def _reminder(self, row):
+        """按提交时间分档提醒；文字在一档内不变，避免每天重复推送同样的消息。"""
+        if row['status'] != 'SUBMITTED':
+            return ''
+        submitted = self.repo.submitted_at(row['id'])
+        if submitted is None:
+            return '；提交时间未知，无法计算跟进天数'
+        days = int((time.time() - submitted) // 86400)
+        for threshold, text in _FOLLOWUP_REMINDERS:
+            if days >= threshold:
+                return '；' + text
+        return ''
+
+    def _report_heading(self, row):
         title = row['job'].get('job_title') or '职位待核实'
-        reminder = '；已超过3天，可人工检查回复' if row['status'] == 'SUBMITTED' and time.time()-row['updated_at'] >= 3*86400 else ''
         availability = f"；{row['availability_warning']}" if row['availability_warning'] else ''
-        return f"#{row['id']} {title} | {row['status']} | 版本{row['revision']}{reminder}{availability}"
+        return f"#{row['id']} {title} | {row['status']} | 版本{row['revision']}{self._reminder(row)}{availability}"
 
     def write_report(self, path):
         """No duplicate notification on unchanged summaries; atomic local replacement."""

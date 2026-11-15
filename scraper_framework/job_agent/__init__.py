@@ -24,6 +24,7 @@ __all__ = [
     "JD_LIST_FIELDS",
     "extract_jd",
     "extract_jd_batch",
+    "extract_jd_from_text",
     "score",
     "score_jobs",
     "DEFAULT_SKILL_PROFILE",

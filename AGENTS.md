@@ -3,6 +3,7 @@
 - Hermes changes belong on `feature/hermes`. Check the current branch before edits.
 - Make small, purpose-specific commits after tests and review. Do not combine unrelated features in one commit or push without an explicit request.
 - Commit messages must follow the repository's existing Chinese style: `feat:新增…`, `fix:修复…`, `refactor:调整…`, `docs:补充…`. Do not use English summaries or add a scope unless requested.
+- 新增或修改的代码注释、文档字符串尽量使用中文；保留必要的技术标识和工具指令，不为翻译注释而改动无关代码。
 - The repository contains pre-existing user modifications. Never discard, stage, or commit those as part of agent work. Inspect exact diffs; avoid `git add -A` and blanket stash/reset.
 - Use `.venv/Scripts/python.exe` on this Windows workstation. See `docs/ENVIRONMENT.md` for reproducible installation and the known dependency/test baseline.
 - Job workflow development is offline-first. Do not spend LLM credit, log into recruitment accounts, or send applications/messages during tests. Use local fixtures and temporary SQLite databases.

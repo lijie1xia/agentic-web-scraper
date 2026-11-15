@@ -8,7 +8,7 @@ from pathlib import Path
 
 from .execution import prepare_handoff
 from .service import ROOT, Workflow
-from .sources import fetch_greenhouse, load_export
+from .sources import LEVER_COMPLETE_SNAPSHOT, fetch_greenhouse, fetch_lever, load_export
 from .lifecycle import record_snapshot
 from .campus import fetch_campus
 
@@ -28,7 +28,7 @@ def import_inbox(flow, path):
             raise ValueError('收件进度文件损坏')
         state = loaded
     seen = {item for item in state['ids'] if isinstance(item, str)}
-    result = {'processed': [], 'errors': [], 'skipped': 0}
+    result = {'processed': [], 'errors': [], 'skipped': 0, 'ignored': 0}
     lines = path.read_text(encoding='utf-8-sig').splitlines() if path.exists() else None
     if lines is None:
         result['errors'].append('收件箱不存在')
@@ -48,6 +48,12 @@ def import_inbox(flow, path):
         if message_id in seen:
             result['skipped'] += 1
             continue
+        if not _looks_like_job(text):
+            # 微信里问好、回「1」这类短消息只是让会话保活，不能当岗位建档。
+            result['ignored'] += 1
+            seen.add(message_id)
+            state['ids'].append(message_id)
+            continue
         try:
             batch = flow.import_batch_text(text)
         except (ValueError, TypeError, KeyError) as exc:
@@ -61,6 +67,16 @@ def import_inbox(flow, path):
     state_path.write_text(json.dumps({'ids': state['ids']}, ensure_ascii=False), encoding='utf-8')
     result['unique_jobs'] = len(set(result['processed']))
     return result
+
+
+INBOX_SIGNALS = ('招聘', '岗位', '职位', '职责', '任职', '要求', '薪资', '实习', '全职', '兼职',
+                 'http', 'intern', 'job', 'remote')
+
+
+def _looks_like_job(text):
+    """够长或含岗位关键词才当 JD；短消息一律忽略。"""
+    stripped = text.strip()
+    return len(stripped) >= 40 or (len(stripped) >= 8 and any(word in stripped.lower() for word in INBOX_SIGNALS))
 
 
 def main(argv=None):
@@ -89,6 +105,7 @@ def main(argv=None):
     cycle = commands.add_parser('cycle', help='可重复的只读来源导入/分析/日报任务，不审批不发送')
     cycle.add_argument('--input', action='append', default=[], help='本地 JSON；可重复')
     cycle.add_argument('--board', action='append', default=[], help='Greenhouse board token；可重复')
+    cycle.add_argument('--lever', action='append', default=[], help='Lever 公开看板 site；可重复')
     cycle.add_argument('--campus', action='store_true', help='低频读取港中大深圳公开岗位的局部列表')
     cycle.add_argument('--campus-url', action='append', default=[], help='优先复查的该站详情 URL；与新岗位共享上限')
     cycle.add_argument('--campus-pages', type=int, default=1)
@@ -146,7 +163,9 @@ def main(argv=None):
                 _json(prepare_handoff(flow.repo, args.job_id))
             elif args.command == 'cycle':
                 result = {'processed': 0, 'errors': []}
-                sources = [('file', value) for value in args.input] + [('greenhouse', value) for value in args.board]
+                sources = ([('file', value) for value in args.input]
+                           + [('greenhouse', value) for value in args.board]
+                           + [('lever', value) for value in args.lever])
                 if args.campus:
                     sources.append(('cuhk', 'public'))
                 for kind, value in sources:
@@ -154,16 +173,24 @@ def main(argv=None):
                         if kind == 'cuhk':
                             rows = fetch_campus(allow_network=args.allow_network, pages=args.campus_pages,
                                                 max_jobs=args.campus_limit, known_urls=args.campus_url)
+                        elif kind == 'lever':
+                            rows = fetch_lever(value, allow_network=args.allow_network)
                         else:
                             rows = load_export(value) if kind == 'file' else fetch_greenhouse(value, allow_network=args.allow_network)
                         imported = flow.import_rows(rows)
                         if kind == 'greenhouse':
                             record_snapshot(flow.repo, f'greenhouse:{value}', imported['processed'], complete=not imported['errors'])
+                        elif kind == 'lever':
+                            # Lever 没有总数可核对，只记录本次读取，不据此判断岗位下架。
+                            record_snapshot(flow.repo, f'lever:{value}', imported['processed'],
+                                            complete=LEVER_COMPLETE_SNAPSHOT and not imported['errors'])
                         result['processed'] += len(imported['processed'])
                         result['errors'].extend(imported['errors'])
                     except (OSError, ValueError, TypeError, KeyError) as exc:
                         if kind == 'greenhouse':
                             record_snapshot(flow.repo, f'greenhouse:{value}', [], complete=False)
+                        elif kind == 'lever':
+                            record_snapshot(flow.repo, f'lever:{value}', [], complete=False)
                         result['errors'].append(f'{kind}: {value}: {type(exc).__name__}: {exc}')
                 result['summary'] = flow.summary()
                 result['report_changed'] = flow.write_report(args.report)

@@ -165,11 +165,11 @@ style 必须分别是: {_GREETING_STYLES[0]}、{_GREETING_STYLES[1]}、{_GREETIN
 """
 
 
-def _call_llm(prompt: str, model: str) -> Any:
+def _call_llm(prompt: str, model: str, *, api_key: Optional[str] = None) -> Any:
     """单次 LLM 调用并解析 JSON。camel 依赖延迟导入，便于纯规则测试。"""
     from camel.agents import ChatAgent
 
-    from ..agents.llm_agent.llm_scraper import extract_json
+    from ..tools.json_extract import extract_json
     from ..tools.model_factory import (
         NO_PROXY_TARGETS,
         enable_no_proxy_for_aliyun,
@@ -178,7 +178,7 @@ def _call_llm(prompt: str, model: str) -> Any:
 
     agent = ChatAgent(
         prompt,
-        model=get_model(model),
+        model=get_model(model, api_key=api_key),
         output_language="zh",
         step_timeout=60 * 5,
     )
@@ -219,6 +219,8 @@ def generate_greeting(
     decision: dict,
     resume: dict,
     model: str = "deepseek",
+    *,
+    api_key: Optional[str] = None,
 ) -> list:
     """为单条岗位生成邮件开场白。不推荐的岗位直接返回 []，不调用 LLM。"""
     if not isinstance(decision, dict) or not decision.get("recommend"):
@@ -234,7 +236,7 @@ def generate_greeting(
     last_err = None
     for attempt in range(1, _PARSE_RETRIES + 1):
         try:
-            raw = _call_llm(prompt, model=model)
+            raw = _call_llm(prompt, model=model, api_key=api_key)
             greetings = _normalize_greetings(raw)
             if greetings:
                 return greetings

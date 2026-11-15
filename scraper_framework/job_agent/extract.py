@@ -2,30 +2,34 @@
 
 流程：先用 DrissionPage 打开 URL -> HTML->Markdown -> 再让 LLM 抽 JSON。
 （不用 ReAct 工具调用：已知 URL 时没必要等模型决定是否打开页面。）
+粘贴文本路径 extract_jd_from_text 不打开浏览器，抓取相关依赖延迟导入。
 """
+
+from __future__ import annotations
 
 import os
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Union
 
 from camel.agents import ChatAgent
-from DrissionPage.items import MixTab
 
-from ..agents.llm_agent.llm_scraper import extract_json
 from ..logger import get_spider_logger
+from ..tools.json_extract import extract_json
 from ..tools.model_factory import (
     NO_PROXY_TARGETS,
     enable_no_proxy_for_aliyun,
     get_model,
 )
-from ..tools.page_fetcher import fetch_page_as_markdown_sync
 from .schema import (
     JD_EXTRACT_USER_PROMPT,
     JD_OUTPUT_FIELDS,
     empty_jd_fields,
     normalize_jd_result,
 )
+
+if TYPE_CHECKING:
+    from DrissionPage.items import MixTab
 
 logger = get_spider_logger(__name__)
 
@@ -68,6 +72,8 @@ def _llm_extract_from_markdown(
     url: str,
     model_name: str,
     max_retries: int,
+    *,
+    api_key: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
     """纯 LLM 抽取（无工具），输入已是页面内容。"""
     content = markdown
@@ -76,7 +82,7 @@ def _llm_extract_from_markdown(
 
     agent = ChatAgent(
         _build_extract_prompt(),
-        model=get_model(model_name),
+        model=get_model(model_name, api_key=api_key),
         output_language="zh",
         step_timeout=60 * 5,
     )
@@ -131,6 +137,8 @@ def extract_jd(
     if not model:
         model = os.getenv("CRAWL_MODEL", "deepseek")
 
+    from ..tools.page_fetcher import fetch_page_as_markdown_sync
+
     print(f"  -> 打开页面: {url}")
     logger.info(f"fetching page: {url}")
     markdown = fetch_page_as_markdown_sync(tab, url)
@@ -173,10 +181,12 @@ def extract_jd_from_text(
     max_retries: int = 3,
     *,
     source_url: str = "paste://demo",
+    api_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     """从粘贴的 JD 文本抽取结构化字段（不打开浏览器）。用于适配Gradio做的演示demo
 
     复用与 extract_jd 相同的 LLM 抽取与 normalize；仅跳过页面抓取。
+    api_key 仅透传给本次调用，用于访客自带密钥的公开 Demo，不读写环境变量。
     """
     if not model:
         model = os.getenv("CRAWL_MODEL", "deepseek")
@@ -188,7 +198,8 @@ def extract_jd_from_text(
         return normalize_jd_result({"source_url": source_url, **empty_jd_fields()})
 
     print(f"  -> 粘贴文本长度={len(markdown)}")
-    extracted = _llm_extract_from_markdown(markdown, source_url, model, max_retries)
+    extracted = _llm_extract_from_markdown(
+        markdown, source_url, model, max_retries, api_key=api_key)
 
     result: Dict[str, Any] = {"source_url": source_url, **empty_jd_fields()}
     if isinstance(extracted, dict):

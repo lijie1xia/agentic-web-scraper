@@ -31,7 +31,7 @@ from .document_fetcher import DocumentFetcher
 from .page_source import PageSource
 from .prompts import NAVIGATOR_SYSTEM_PROMPT, build_initial_prompt, build_step_context
 from ...tools.model_factory import get_model, enable_no_proxy_for_aliyun, NO_PROXY_TARGETS
-from ...agents.llm_agent.llm_scraper import extract_json
+from ...tools.json_extract import extract_json
 from ...models import ScrapeResult
 from ...logger import get_spider_logger
 

@@ -25,6 +25,20 @@ def _hash(value):
     return hashlib.sha256(value.encode('utf-8')).hexdigest()
 
 
+_FOLLOWUP_TARGETS = {
+    'replied': 'REPLIED', 'interview': 'INTERVIEW', 'rejected': 'REJECTED',
+    'no_reply': 'NO_REPLY', 'withdrew': 'WITHDREW',
+    'closed': 'WITHDREW',  # 旧接口的 closed 语义含混，统一映射为主动放弃
+}
+
+# 只允许前进：回复可以升级为面试，任一非终态都可以明确结束。
+_TRANSITIONS = {
+    'SUBMITTED': {'REPLIED', 'INTERVIEW', 'REJECTED', 'NO_REPLY', 'WITHDREW'},
+    'REPLIED': {'INTERVIEW', 'REJECTED', 'WITHDREW'},
+    'INTERVIEW': {'REJECTED', 'WITHDREW'},
+}
+
+
 class Repository:
     def __init__(self, path):
         self._lock = threading.RLock()
@@ -382,16 +396,26 @@ class Repository:
             return self.get_job(job_id)
 
     def set_followup(self, job_id, *, status: str, note: str = ''):
-        if status not in {'replied', 'interview', 'closed'} or not isinstance(note, str):
-            raise ValueError('Follow-up requires replied/interview/closed and a text note')
+        """记录人工跟进的真实结果；终态不可回退，避免误点后状态乱跳。"""
+        target = _FOLLOWUP_TARGETS.get(str(status).lower())
+        if target is None or not isinstance(note, str):
+            raise ValueError('Follow-up requires replied/interview/rejected/no_reply/withdrew and a text note')
         with self._transaction():
             job = self.get_job(job_id)
-            if job['status'] not in {'SUBMITTED', 'REPLIED', 'INTERVIEW'}:
-                raise ValueError('Follow-up requires a submitted, non-closed job')
+            allowed = _TRANSITIONS.get(job['status'], set())
+            if target not in allowed:
+                raise ValueError(f'不允许的跟进状态：{job["status"]} → {target}')
             self._db.execute('UPDATE jobs SET status=?,updated_at=? WHERE id=?',
-                             (status.upper(), time.time(), job_id))
-            self._log(job_id, 'followup', {'status': status, 'note': note})
+                             (target, time.time(), job_id))
+            self._log(job_id, 'followup', {'status': target, 'previous': job['status'], 'note': note})
             return self.get_job(job_id)
+
+    def submitted_at(self, job_id):
+        """最近一次人工提交的时间；没有执行记录就返回 None，不用 updated_at 猜测。"""
+        row = self._db.execute(
+            "SELECT finished_at FROM executions WHERE job_id=? AND status='SUBMITTED' "
+            'ORDER BY finished_at DESC LIMIT 1', (job_id,)).fetchone()
+        return row[0] if row and row[0] is not None else None
 
     def skip(self, job_id):
         with self._transaction():
