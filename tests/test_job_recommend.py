@@ -84,8 +84,9 @@ class RecommendTests(unittest.TestCase):
         self.assertEqual([item['row']['id'] for item in select_daily(rows)], [1])
 
     def test_pipeline_recommends_scored_priority_job(self):
-        """从抽取、评分到推荐使用真实决策，空的技能分组不能挡掉优先岗位。"""
+        """抽取、评分到推荐使用真实决策：必需技能齐全的优先岗位进推荐，缺必需技能的不进。"""
         import tempfile
+        from scraper_framework.job_workflow.recommend import exclusion_summary, select_daily
         from scraper_framework.job_workflow.service import Workflow
         profile = {'tech_stack': ['Python', 'RAG'], 'education': '本科', 'graduate_year': 2027,
                    'experience_years': 0, 'preferred_work_mode': ['onsite']}
@@ -99,13 +100,27 @@ class RecommendTests(unittest.TestCase):
             try:
                 flow.import_text(ready)
                 flow.import_text(gap)
+                rows = flow.rows()
                 text = flow.report_text()
             finally:
                 flow.close()
-        window = text.split('今日推荐', 1)[1].split('优先考虑', 1)[0]
-        self.assertIn('AI应用开发实习生', window)
-        self.assertNotIn('后端开发实习生', window)
-        self.assertNotIn('缺必需技能', window)
+        jobs = {item['job']['job_title']: item for item in rows}
+        picked = select_daily(rows)
+        # 断言落在评分与筛选的业务结果上，文案改版不会误判
+        self.assertEqual(jobs['AI应用开发实习生']['decision']['category'], 'priority')
+        self.assertTrue(jobs['AI应用开发实习生']['decision']['recommend'])
+        self.assertEqual(jobs['AI应用开发实习生']['decision']['missing_skills']['required'], [])
+        self.assertEqual(jobs['后端开发实习生']['decision']['missing_skills']['required'], ['Rust'])
+        self.assertFalse(jobs['后端开发实习生']['decision']['recommend'])
+        self.assertEqual([item['row']['job']['job_title'] for item in picked], ['AI应用开发实习生'])
+        self.assertNotIn('缺必需技能', exclusion_summary(rows))
+        # 日报只核对“今日推荐”段里出现的是哪一条，不依赖整份文本的切片
+        lines = text.splitlines()
+        start = next(index for index, line in enumerate(lines) if line.startswith('今日推荐'))
+        end = next(index for index, line in enumerate(lines) if line.strip() == '优先考虑')
+        daily = lines[start + 1:end]
+        self.assertTrue(any(f"#{jobs['AI应用开发实习生']['id']} AI应用开发实习生 · " in line for line in daily))
+        self.assertFalse(any('后端开发实习生' in line for line in daily))
 
     def test_report_section_lists_recommendations_and_counts(self):
         import tempfile
