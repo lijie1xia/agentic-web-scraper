@@ -7,10 +7,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
 def row(job_id, *, title='AI应用开发实习生', company='某公司', location='深圳',
-        score=90, category='priority', salary=(180, 180), missing=None,
+        score=90, category='priority', salary=(180, 180), missing=None, preferred=None,
         status='READY_FOR_REVIEW', fallback=False, availability=''):
+    # 与 score() 一致：missing_skills 始终是三个列表，不能写成单个列表。
     decision = {'category': category, 'score': score, 'recommend': category == 'priority',
-                'reasons': ['技术栈重合'], 'missing_skills': missing or [],
+                'reasons': ['技术栈重合'],
+                'missing_skills': {'required': list(missing or []),
+                                   'preferred': list(preferred or []),
+                                   'unspecified': []},
                 'fallback_only': fallback, 'salary_check': None}
     if salary is not None:
         low, high = salary
@@ -73,6 +77,35 @@ class RecommendTests(unittest.TestCase):
         self.assertTrue(any('92' in text for text in reasons))
         self.assertTrue(any('广州' in text for text in reasons))
         self.assertLessEqual(len(reasons), 3)
+
+    def test_preferred_gap_stays_while_required_gap_is_blocked(self):
+        from scraper_framework.job_workflow.recommend import select_daily
+        rows = [row(1, preferred=['Rust']), row(2, missing=['Go'])]
+        self.assertEqual([item['row']['id'] for item in select_daily(rows)], [1])
+
+    def test_pipeline_recommends_scored_priority_job(self):
+        """从抽取、评分到推荐使用真实决策，空的技能分组不能挡掉优先岗位。"""
+        import tempfile
+        from scraper_framework.job_workflow.service import Workflow
+        profile = {'tech_stack': ['Python', 'RAG'], 'education': '本科', 'graduate_year': 2027,
+                   'experience_years': 0, 'preferred_work_mode': ['onsite']}
+        resume = {'projects': [{'name': '项目', 'tags': ['Python'], 'one_liner': '开发 Python 服务。'}]}
+        ready = ('职位：AI应用开发实习生\n公司：演示公司\n地点：广州\n学历：本科\n'
+                 '招聘对象：2027届在读\n工作方式：坐班\n任职要求：Python、RAG\n加分项：Rust\n薪资：180元/天')
+        gap = ('职位：后端开发实习生\n公司：另一公司\n地点：深圳\n学历：本科\n'
+               '招聘对象：2027届在读\n工作方式：坐班\n任职要求：Python、Rust\n薪资：180元/天')
+        with tempfile.TemporaryDirectory() as tmp:
+            flow = Workflow(Path(tmp) / 'jobs.db', profile=profile, resume=resume)
+            try:
+                flow.import_text(ready)
+                flow.import_text(gap)
+                text = flow.report_text()
+            finally:
+                flow.close()
+        window = text.split('今日推荐', 1)[1].split('优先考虑', 1)[0]
+        self.assertIn('AI应用开发实习生', window)
+        self.assertNotIn('后端开发实习生', window)
+        self.assertNotIn('缺必需技能', window)
 
     def test_report_section_lists_recommendations_and_counts(self):
         import tempfile

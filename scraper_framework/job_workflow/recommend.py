@@ -10,6 +10,15 @@ _SKIP_STATUSES = {
 _EXPIRED_HINTS = ('已过截止日期', '已过期')
 
 
+def _missing_required(decision):
+    """只看必需技能。score() 的 missing_skills 始终是三个分组的字典，空分组不能当真。"""
+    missing = decision.get('missing_skills')
+    if not isinstance(missing, dict):
+        return False
+    required = missing.get('required')
+    return isinstance(required, list) and any(str(item).strip() for item in required)
+
+
 def _exclusion_reason(row):
     """返回进不了推荐的原因；None 表示通过硬门槛。"""
     if row.get('status') in _SKIP_STATUSES:
@@ -19,7 +28,7 @@ def _exclusion_reason(row):
         return '明确不符合'
     if not decision.get('recommend'):
         return '仍需核实，未达优先'
-    if decision.get('missing_skills'):
+    if _missing_required(decision):
         return '缺必需技能'
     if any(hint in str(row.get('availability_warning') or '') for hint in _EXPIRED_HINTS):
         return '已过截止日期'
