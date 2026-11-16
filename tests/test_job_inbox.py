@@ -35,6 +35,8 @@ class Event:
 
 
 class InboxTests(unittest.TestCase):
+    # 校准样例是 output/ 下的本机数据，output/ 不进版本库，缺样例时跳过而不是报错。
+    @unittest.skipUnless(SAMPLES.exists(), '需要本机 output/job_calibration/samples.txt（样例不进版本库）')
     def test_calibration_samples_split_without_changing_decisions(self):
         blocks = [block.split('\n', 1)[1] for block in SAMPLES.read_text(encoding='utf-8').split('##### ')[1:]]
         parts = split_postings('\n\n'.join(blocks))
